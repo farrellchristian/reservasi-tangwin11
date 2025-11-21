@@ -13,6 +13,8 @@
     
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
+    <script src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="Mid-client-rUE_opxi5q51vNNj"></script>
+
     <style>
         [x-cloak] { display: none !important; }
         body { font-family: 'Manrope', sans-serif; background-color: #050505; }
@@ -148,7 +150,7 @@
                     </div>
 
                 <div x-show="currentStep === 3" x-cloak x-transition:enter="transition ease-out duration-500" x-transition:enter-start="opacity-0 translate-x-10" x-transition:enter-end="opacity-100 translate-x-0">
-                    <h2 class="text-4xl font-display text-white mb-2">Date & Time</h2>
+                    <h2 class="text-4xl font-display text-white mb-2">Date and Time</h2>
                     <p class="text-gray-500 mb-8">Pilih waktu yang sesuai untuk Anda.</p>
 
                     <div class="space-y-6">
@@ -161,15 +163,26 @@
 
                         <div>
                             <label class="block text-xs uppercase tracking-widest text-gray-500 mb-2">Available Slots</label>
-                            <div class="grid grid-cols-3 gap-3" x-show="date">
-                                <template x-for="time in ['10:00', '11:00', '13:00', '14:00', '16:00', '19:00', '20:00']">
-                                    <button @click="timeSlot = time"
+                            
+                            <div x-show="isLoadingSlots" class="text-sm text-[#C6A87C] animate-pulse mb-2">
+                                Mencari jadwal tersedia...
+                            </div>
+
+                            <div class="grid grid-cols-3 md:grid-cols-4 gap-3" x-show="date && !isLoadingSlots">
+                                <template x-for="slot in availableSlots" :key="slot.id_slot">
+                                    <button @click="timeSlot = slot.formatted_time"
+                                            type="button"
                                             class="py-3 text-sm border rounded transition-all duration-200"
-                                            :class="timeSlot === time ? 'bg-[#C6A87C] text-black border-[#C6A87C] font-bold' : 'border-white/10 text-gray-400 hover:border-white hover:text-white'">
-                                        <span x-text="time"></span>
+                                            :class="timeSlot === slot.formatted_time ? 'bg-[#C6A87C] text-black border-[#C6A87C] font-bold' : 'border-white/10 text-gray-400 hover:border-white hover:text-white'">
+                                        <span x-text="slot.formatted_time"></span>
                                     </button>
                                 </template>
                             </div>
+                            
+                            <p x-show="date && !isLoadingSlots && availableSlots.length === 0" class="text-sm text-red-400 italic mt-2">
+                                Maaf, tidak ada jadwal tersedia untuk <span x-text="selectedCapsterName"></span> di hari ini. Coba tanggal lain.
+                            </p>
+                            
                             <p x-show="!date" class="text-sm text-gray-600 italic">Silakan pilih tanggal terlebih dahulu.</p>
                         </div>
                     </div>
@@ -219,6 +232,15 @@
                 </button>
             </div>
 
+            </div> <div x-show="isProcessingPayment" 
+             class="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center"
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100">
+            <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-[#C6A87C] mb-4"></div>
+            <p class="text-[#C6A87C] text-lg font-display tracking-widest animate-pulse">Processing Payment...</p>
+        </div>
+        
         </div>
     </div>
 
@@ -229,16 +251,26 @@
                 steps: ['Service', 'Stylist', 'Time', 'Confirm'],
                 
                 // Data Models
-                selectedService: null, // { id, name, price }
-                selectedCapster: null, // { id, name }
-                selectedCapsterName: '', // Untuk tampilan 'Siapa Saja'
+                selectedService: null, 
+                selectedCapster: null, 
+                selectedCapsterName: '', 
                 date: '',
                 timeSlot: '',
+                availableSlots: [],
+                isLoadingSlots: false,
+                isProcessingPayment: false, // State untuk loading pembayaran
+                
                 customerName: '',
                 customerPhone: '',
                 notes: '',
 
-                // Actions
+                init() {
+                    this.$watch('date', (value) => {
+                        if(value) this.fetchSlots();
+                    });
+                },
+
+                // Actions Standard
                 selectService(id, name, price) {
                     this.selectedService = { id, name, price };
                 },
@@ -246,27 +278,50 @@
                 selectCapster(id, name) {
                     this.selectedCapster = id ? { id, name } : null;
                     this.selectedCapsterName = name;
+                    if(this.date) {
+                        this.fetchSlots();
+                        this.timeSlot = '';
+                    }
                 },
 
-                // Format Currency Rupiah
+                fetchSlots() {
+                    if (!this.date) return;
+                    this.isLoadingSlots = true;
+                    this.availableSlots = [];
+                    let url = `{{ route('booking.slots') }}?date=${this.date}`;
+                    if (this.selectedCapster) {
+                        url += `&employee_id=${this.selectedCapster.id}`;
+                    }
+
+                    fetch(url)
+                        .then(response => response.json())
+                        .then(data => {
+                            this.availableSlots = data.slots;
+                            this.isLoadingSlots = false;
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            this.isLoadingSlots = false;
+                        });
+                },
+
                 formatRupiah(angka) {
                     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
                 },
 
-                // Format Date UI
                 formatDate(dateStr) {
                     if(!dateStr) return '';
                     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
                     return new Date(dateStr).toLocaleDateString('id-ID', options);
                 },
 
-                // Navigation Logic
+                // Navigasi
                 nextStep() {
                     if (this.currentStep < 4) {
                         this.currentStep++;
                     } else {
-                        // Submit Logic (Nanti kita hubungkan ke Backend)
-                        alert('Booking Logic akan diproses di langkah berikutnya!');
+                        // Jika di step terakhir (Confirm), jalankan pembayaran
+                        this.processPayment();
                     }
                 },
 
@@ -274,13 +329,69 @@
                     if (this.currentStep > 1) this.currentStep--;
                 },
 
-                // Validation
                 canProceed() {
                     if (this.currentStep === 1) return this.selectedService !== null;
-                    if (this.currentStep === 2) return this.selectedCapsterName !== ''; // Capster boleh null (siapa saja), tapi harus dipilih opsinya
+                    if (this.currentStep === 2) return this.selectedCapsterName !== ''; 
                     if (this.currentStep === 3) return this.date !== '' && this.timeSlot !== '';
                     if (this.currentStep === 4) return this.customerName !== '' && this.customerPhone !== '';
                     return false;
+                },
+
+                // LOGIKA PEMBAYARAN MIDTRANS (BARU)
+                processPayment() {
+                    this.isProcessingPayment = true;
+
+                    // 1. Kirim Data ke Backend Laravel
+                    fetch('{{ route('booking.process') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}' // Token keamanan wajib Laravel
+                        },
+                        body: JSON.stringify({
+                            service_id: this.selectedService.id,
+                            capster_id: this.selectedCapster ? this.selectedCapster.id : null,
+                            date: this.date,
+                            time: this.timeSlot,
+                            customer_name: this.customerName,
+                            customer_phone: this.customerPhone,
+                            notes: this.notes
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        this.isProcessingPayment = false;
+
+                        if(data.status === 'success') {
+                            // 2. Jika Sukses, Buka Popup Midtrans (Snap)
+                            console.log('Token:', data.snap_token);
+                            
+                            window.snap.pay(data.snap_token, {
+                                onSuccess: function(result){
+                                    alert("Pembayaran Berhasil! Terima kasih sudah booking.");
+                                    window.location.href = "{{ route('home') }}"; // Redirect ke Home
+                                },
+                                onPending: function(result){
+                                    alert("Menunggu pembayaran Anda!");
+                                    window.location.href = "{{ route('home') }}";
+                                },
+                                onError: function(result){
+                                    alert("Pembayaran gagal!");
+                                },
+                                onClose: function(){
+                                    alert('Anda menutup popup tanpa menyelesaikan pembayaran');
+                                }
+                            });
+
+                        } else {
+                            alert('Gagal: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        this.isProcessingPayment = false;
+                        console.error('Error:', error);
+                        alert('Terjadi kesalahan sistem.');
+                    });
                 }
             }
         }
