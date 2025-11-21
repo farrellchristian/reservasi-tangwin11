@@ -5,15 +5,14 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Service;
 use App\Models\Employee;
-use App\Models\Reservation; // Pastikan Model ini ada (kita buat di langkah awal)
+use App\Models\Reservation;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Midtrans\Config;
-use Midtrans\Snap;
+use Midtrans\CoreApi;
 
 class BookingController extends Controller
 {
-    // 1. Menampilkan Halaman Wizard
     public function showBookingForm()
     {
         $services = Service::all();
@@ -21,7 +20,6 @@ class BookingController extends Controller
         return view('booking.wizard', compact('services', 'capsters'));
     }
 
-    // 2. API: Cek Slot Tersedia
     public function getAvailableSlots(Request $request)
     {
         $request->validate([
@@ -51,6 +49,7 @@ class BookingController extends Controller
                 ->where('booking_date', $date)
                 ->where('booking_time', $slot->slot_time)
                 ->where('status', '!=', 'canceled')
+                ->where('status', '!=', 'expired')
                 ->where(function($q) use ($employeeId) {
                     if ($employeeId) {
                         $q->where('id_employee', $employeeId);
@@ -70,52 +69,49 @@ class BookingController extends Controller
         ]);
     }
 
-    // 3. PROSES BOOKING & MIDTRANS (INI YANG BARU)
+    // --- FUNGSI 1: PROSES BOOKING ---
     public function processBooking(Request $request)
     {
-        // Validasi Input
         $request->validate([
             'service_id' => 'required|exists:services,id_service',
-            'capster_id' => 'nullable|exists:employees,id_employee', // Boleh null kalau "Siapa Saja"
+            'capster_id' => 'nullable|exists:employees,id_employee',
             'date' => 'required|date',
             'time' => 'required',
             'customer_name' => 'required|string',
             'customer_phone' => 'required|string',
+            'payment_method' => 'required|string',
         ]);
 
-        // Ambil data Service untuk tahu harganya
         $service = Service::find($request->service_id);
 
         try {
             DB::beginTransaction();
 
-            // 1. Simpan ke Database
             $reservation = new Reservation();
-            $reservation->id_store = 2; // ID 2 = Syuhada (Sesuai screenshot awal)
+            $reservation->id_store = 2; 
             $reservation->customer_name = $request->customer_name;
             $reservation->customer_phone = $request->customer_phone;
             $reservation->booking_date = $request->date;
-            $reservation->booking_time = $request->time; // Format '10:00'
+            $reservation->booking_time = $request->time;
             $reservation->id_service = $service->id_service;
-            $reservation->id_employee = $request->capster_id; // Bisa null
-            $reservation->status = 'pending'; // Status awal pending bayar
+            $reservation->id_employee = $request->capster_id;
+            $reservation->status = 'pending';
             $reservation->notes = $request->notes;
             $reservation->save();
 
-            // 2. Konfigurasi Midtrans
             Config::$serverKey = config('midtrans.server_key');
             Config::$isProduction = config('midtrans.is_production');
             Config::$isSanitized = config('midtrans.is_sanitized');
             Config::$is3ds = config('midtrans.is_3ds');
 
-            // 3. Siapkan Parameter Transaksi Midtrans
-            // Order ID kita buat unik: BOOK-{ID_RESERVASI}-{TIMESTAMP}
             $orderId = 'BOOK-' . $reservation->id_reservation . '-' . time();
+            $grossAmount = (int) $service->price;
 
             $params = [
+                'payment_type' => '',
                 'transaction_details' => [
                     'order_id' => $orderId,
-                    'gross_amount' => (int) $service->price, // Harga harus integer
+                    'gross_amount' => $grossAmount,
                 ],
                 'customer_details' => [
                     'first_name' => $request->customer_name,
@@ -124,24 +120,45 @@ class BookingController extends Controller
                 'item_details' => [
                     [
                         'id' => $service->id_service,
-                        'price' => (int) $service->price,
+                        'price' => $grossAmount,
                         'quantity' => 1,
-                        'name' => substr($service->service_name, 0, 50), // Midtrans max 50 chars name
+                        'name' => substr($service->service_name, 0, 50),
                     ]
                 ]
             ];
 
-            // 4. Minta Snap Token ke Midtrans
-            $snapToken = Snap::getSnapToken($params);
+            if ($request->payment_method == 'qris') {
+                $params['payment_type'] = 'qris';
+                $params['qris'] = ['acquirer' => 'gopay']; 
+            } 
+            elseif ($request->payment_method == 'bank_transfer') {
+                $params['payment_type'] = 'bank_transfer';
+                $params['bank_transfer'] = ['bank' => 'bca']; 
+            }
+
+            $response = CoreApi::charge($params);
 
             DB::commit();
 
-            // 5. Kembalikan Token ke Frontend
-            return response()->json([
+            $resultData = [
                 'status' => 'success',
-                'snap_token' => $snapToken,
-                'reservation_id' => $reservation->id_reservation
-            ]);
+                'order_id' => $orderId, // <--- INI PENTING UNTUK POLLING
+                'payment_type' => $request->payment_method,
+                'reservation_id' => $reservation->id_reservation,
+                'amount' => $grossAmount,
+            ];
+
+            if ($request->payment_method == 'qris') {
+                $resultData['qr_image_url'] = $response->actions[0]->url ?? null; 
+                $resultData['expiration_time'] = $response->expiry_time ?? null;
+            } 
+            elseif ($request->payment_method == 'bank_transfer') {
+                $resultData['va_number'] = $response->va_numbers[0]->va_number ?? null;
+                $resultData['bank'] = 'BCA';
+                $resultData['expiration_time'] = $response->expiry_time ?? null;
+            }
+
+            return response()->json($resultData);
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -149,7 +166,58 @@ class BookingController extends Controller
         }
     }
 
-    // Helper
+    // --- FUNGSI 2: CEK STATUS (POLLING) ---
+    public function checkPaymentStatus(Request $request)
+    {
+        $orderId = $request->order_id;
+
+        try {
+            Config::$serverKey = config('midtrans.server_key');
+            Config::$isProduction = config('midtrans.is_production');
+            Config::$isSanitized = config('midtrans.is_sanitized');
+            Config::$is3ds = config('midtrans.is_3ds');
+
+            $status = \Midtrans\Transaction::status($orderId);
+            $transactionStatus = $status->transaction_status;
+            $fraudStatus = $status->fraud_status;
+
+            $isPaid = false;
+
+            if ($transactionStatus == 'capture') {
+                if ($fraudStatus == 'challenge') {
+                    // Challenge
+                } else {
+                    $isPaid = true;
+                }
+            } else if ($transactionStatus == 'settlement') {
+                $isPaid = true;
+            } else if ($transactionStatus == 'pending') {
+                $isPaid = false;
+            } else if ($transactionStatus == 'deny' || $transactionStatus == 'expire' || $transactionStatus == 'cancel') {
+                return response()->json(['status' => 'failed']);
+            }
+
+            if ($isPaid) {
+                // Update status reservasi di database
+                $parts = explode('-', $orderId);
+                $reservationId = $parts[1]; // Ambil ID dari BOOK-{ID}-TIMESTAMP
+
+                $reservation = Reservation::find($reservationId);
+                if($reservation) {
+                    $reservation->status = 'approved';
+                    $reservation->save();
+                }
+
+                return response()->json(['status' => 'paid']);
+            }
+
+            return response()->json(['status' => 'pending']);
+
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()]);
+        }
+    }
+
     private function getDayNameIndonesian($dateString)
     {
         $englishDay = date('l', strtotime($dateString));

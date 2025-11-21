@@ -14,3 +14,6 @@ Route::get('/booking/slots', [BookingController::class, 'getAvailableSlots'])->n
 
 // Route Proses Simpan & Bayar (POST)
 Route::post('/booking/process', [BookingController::class, 'processBooking'])->name('booking.process');
+
+// Route Cek Status Pembayaran (Polling)
+Route::get('/booking/check-status', [BookingController::class, 'checkPaymentStatus'])->name('booking.check');
