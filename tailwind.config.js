@@ -14,6 +14,11 @@ export default {
             fontFamily: {
                 sans: ['Figtree', ...defaultTheme.fontFamily.sans],
             },
+            // INI TAMBAHANNYA: Warna khusus untuk desain Tangwin Cut
+            colors: {
+                'tangwin-dark': '#1a1a1a', 
+                'tangwin-accent': '#3b82f6',
+            }
         },
     },
     plugins: [],
