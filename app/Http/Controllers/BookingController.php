@@ -7,9 +7,13 @@ use App\Models\Service;
 use App\Models\Employee;
 use App\Models\Reservation;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail; // Import Mail
+use Illuminate\Support\Facades\Log;  // Import Log untuk debugging
 use Carbon\Carbon;
 use Midtrans\Config;
 use Midtrans\CoreApi;
+use Barryvdh\DomPDF\Facade\Pdf; // Import PDF
+use App\Mail\PaymentSuccessMail; // Import Mail Class yang kita buat
 
 class BookingController extends Controller
 {
@@ -69,7 +73,6 @@ class BookingController extends Controller
         ]);
     }
 
-    // --- FUNGSI 1: PROSES BOOKING ---
     public function processBooking(Request $request)
     {
         $request->validate([
@@ -79,6 +82,7 @@ class BookingController extends Controller
             'time' => 'required',
             'customer_name' => 'required|string',
             'customer_phone' => 'required|string',
+            'customer_email' => 'nullable|email',
             'payment_method' => 'required|string',
         ]);
 
@@ -91,6 +95,7 @@ class BookingController extends Controller
             $reservation->id_store = 2; 
             $reservation->customer_name = $request->customer_name;
             $reservation->customer_phone = $request->customer_phone;
+            $reservation->customer_email = $request->customer_email;
             $reservation->booking_date = $request->date;
             $reservation->booking_time = $request->time;
             $reservation->id_service = $service->id_service;
@@ -116,6 +121,7 @@ class BookingController extends Controller
                 'customer_details' => [
                     'first_name' => $request->customer_name,
                     'phone' => $request->customer_phone,
+                    'email' => $request->customer_email, // Kirim email ke Midtrans juga
                 ],
                 'item_details' => [
                     [
@@ -142,7 +148,7 @@ class BookingController extends Controller
 
             $resultData = [
                 'status' => 'success',
-                'order_id' => $orderId, // <--- INI PENTING UNTUK POLLING
+                'order_id' => $orderId,
                 'payment_type' => $request->payment_method,
                 'reservation_id' => $reservation->id_reservation,
                 'amount' => $grossAmount,
@@ -166,7 +172,7 @@ class BookingController extends Controller
         }
     }
 
-    // --- FUNGSI 2: CEK STATUS (POLLING) ---
+    // --- FUNGSI UTAMA: CEK STATUS, GENERATE PDF, & KIRIM EMAIL ---
     public function checkPaymentStatus(Request $request)
     {
         $orderId = $request->order_id;
@@ -198,14 +204,34 @@ class BookingController extends Controller
             }
 
             if ($isPaid) {
-                // Update status reservasi di database
                 $parts = explode('-', $orderId);
-                $reservationId = $parts[1]; // Ambil ID dari BOOK-{ID}-TIMESTAMP
+                $reservationId = $parts[1]; 
 
-                $reservation = Reservation::find($reservationId);
-                if($reservation) {
+                $reservation = Reservation::with(['service', 'employee'])->find($reservationId);
+                
+                // Cek agar tidak kirim email double (Hanya jika status sebelumnya BUKAN approved)
+                if($reservation && $reservation->status !== 'approved') {
                     $reservation->status = 'approved';
                     $reservation->save();
+
+                    // --- MULAI PROSES EMAIL OTOMATIS ---
+                    if ($reservation->customer_email) {
+                        try {
+                            // 1. Generate PDF dari View
+                            $pdf = Pdf::loadView('pdf.invoice', ['reservation' => $reservation]);
+                            $pdfOutput = $pdf->output(); // Ambil output mentah PDF-nya
+
+                            // 2. Kirim Email dengan Attachment
+                            Mail::to($reservation->customer_email)->send(new PaymentSuccessMail($reservation, $pdfOutput));
+                            
+                            Log::info("Email invoice terkirim ke: " . $reservation->customer_email);
+
+                        } catch (\Exception $e) {
+                            // Jangan biarkan error email menggagalkan status pembayaran
+                            Log::error("Gagal kirim email invoice: " . $e->getMessage());
+                        }
+                    }
+                    // --- SELESAI PROSES EMAIL ---
                 }
 
                 return response()->json(['status' => 'paid']);

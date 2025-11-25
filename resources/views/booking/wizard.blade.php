@@ -186,6 +186,11 @@
                             <input type="tel" x-model="customerPhone" placeholder="Contoh: 0812..." class="w-full bg-[#111] border border-white/10 rounded-lg p-4 text-white focus:border-[#C6A87C] focus:ring-0 transition outline-none">
                         </div>
                         <div>
+                            <label class="block text-xs uppercase tracking-widest text-gray-500 mb-2">Email Address (Optional)</label>
+                            <input type="email" x-model="customerEmail" placeholder="contoh@email.com" class="w-full bg-[#111] border border-white/10 rounded-lg p-4 text-white focus:border-[#C6A87C] focus:ring-0 transition outline-none">
+                            <p class="text-[10px] text-gray-500 mt-1">*Isi jika ingin invoice dikirim ke email.</p>
+                        </div>
+                        <div>
                             <label class="block text-xs uppercase tracking-widest text-gray-500 mb-2">Notes (Optional)</label>
                             <textarea x-model="notes" rows="3" placeholder="Ada permintaan khusus?" class="w-full bg-[#111] border border-white/10 rounded-lg p-4 text-white focus:border-[#C6A87C] focus:ring-0 transition outline-none"></textarea>
                         </div>
@@ -300,7 +305,7 @@
                 paymentCheckInterval: null, 
                 selectedService: null, selectedCapster: null, selectedCapsterName: '', 
                 date: '', timeSlot: '', availableSlots: [], isLoadingSlots: false, isProcessingPayment: false,
-                customerName: '', customerPhone: '', notes: '',
+                customerName: '', customerPhone: '', customerEmail: '', notes: '',
 
                 init() {
                     this.$watch('date', (value) => { if(value) this.fetchSlots(); });
@@ -329,11 +334,15 @@
                     else this.showPaymentModal = true;
                 },
                 prevStep() { if (this.currentStep > 1) this.currentStep--; },
+                
                 canProceed() {
                     if (this.currentStep === 1) return this.selectedService !== null;
                     if (this.currentStep === 2) return this.selectedCapsterName !== ''; 
                     if (this.currentStep === 3) return this.date !== '' && this.timeSlot !== '';
-                    if (this.currentStep === 4) return this.customerName !== '' && this.customerPhone !== '';
+                    if (this.currentStep === 4) {
+                        return this.customerName !== '' && 
+                            this.customerPhone !== '';
+                    }
                     return false;
                 },
 
@@ -341,12 +350,17 @@
                     this.isProcessingPayment = true;
                     fetch('{{ route('booking.process') }}', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                        headers: { 
+                            'Content-Type': 'application/json', 
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}' 
+                        },
+
                         body: JSON.stringify({
                             service_id: this.selectedService.id,
                             capster_id: this.selectedCapster ? this.selectedCapster.id : null,
                             date: this.date, time: this.timeSlot,
-                            customer_name: this.customerName, customer_phone: this.customerPhone, notes: this.notes,
+                            customer_name: this.customerName, customer_phone: this.customerPhone, customer_email: this.customerEmail, notes: this.notes,
                             payment_method: this.paymentMethod
                         })
                     })
@@ -369,12 +383,17 @@
 
                 // FUNGSI MATA-MATA (POLLING)
                 pollPaymentStatus(orderId) {
+                    console.log("Mulai memantau status untuk Order ID:", orderId); // Cek di Console Browser (F12)
+
                     this.paymentCheckInterval = setInterval(() => {
-                        // Cek status ke Backend
                         fetch(`{{ route('booking.check') }}?order_id=${orderId}`)
                             .then(r => r.json())
                             .then(res => {
+                                console.log("Status Midtrans:", res); 
+
                                 if(res.status === 'paid') {
+                                    console.log("PEMBAYARAN SUKSES TERDETEKSI!");
+                                    
                                     // STOP Checking
                                     clearInterval(this.paymentCheckInterval);
                                     
@@ -386,7 +405,8 @@
                                         window.location.href = "{{ route('home') }}";
                                     }, 4000);
                                 }
-                            });
+                            })
+                            .catch(err => console.error("Polling Error:", err));
                     }, 5000); // Cek setiap 5 detik
                 }
             }
