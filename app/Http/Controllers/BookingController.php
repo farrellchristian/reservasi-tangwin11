@@ -5,40 +5,48 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Service;
 use App\Models\Employee;
+use App\Models\Store;
 use App\Models\Reservation;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail; // Import Mail
-use Illuminate\Support\Facades\Log;  // Import Log untuk debugging
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use Midtrans\Config;
 use Midtrans\CoreApi;
-use Barryvdh\DomPDF\Facade\Pdf; // Import PDF
-use App\Mail\PaymentSuccessMail; // Import Mail Class yang kita buat
+use Barryvdh\DomPDF\Facade\Pdf;
+use App\Mail\PaymentSuccessMail;
 
 class BookingController extends Controller
 {
     public function showBookingForm()
     {
+        // Ambil semua Toko/Cabang yang aktif
+        $stores = Store::where('is_active', 1)->get();
+        // Ambil data layanan & kapster untuk difilter via frontend
         $services = Service::all();
         $capsters = Employee::activeCapster()->get();
-        return view('booking.wizard', compact('services', 'capsters'));
+
+        return view('booking.wizard', compact('stores', 'services', 'capsters'));
     }
 
     public function getAvailableSlots(Request $request)
     {
         $request->validate([
+            'store_id' => 'required|exists:stores,id_store',
             'date' => 'required|date',
             'employee_id' => 'nullable|integer'
         ]);
 
         $date = $request->date;
         $employeeId = $request->employee_id;
+        $storeId = $request->store_id;
         $dayName = $this->getDayNameIndonesian($date);
 
         $query = DB::table('reservation_slots')
             ->join('reservation_slot_employee', 'reservation_slots.id_slot', '=', 'reservation_slot_employee.id_slot')
             ->where('reservation_slots.day_of_week', $dayName)
             ->where('reservation_slots.is_active', 1)
+            ->where('reservation_slots.id_store', $storeId) // Filter slot berdasarkan id_store
             ->select('reservation_slots.id_slot', 'reservation_slots.slot_time', 'reservation_slots.quota');
 
         if ($employeeId) {
@@ -54,7 +62,7 @@ class BookingController extends Controller
                 ->where('booking_time', $slot->slot_time)
                 ->where('status', '!=', 'canceled')
                 ->where('status', '!=', 'expired')
-                ->where(function($q) use ($employeeId) {
+                ->where(function ($q) use ($employeeId) {
                     if ($employeeId) {
                         $q->where('id_employee', $employeeId);
                     }
@@ -76,23 +84,42 @@ class BookingController extends Controller
     public function processBooking(Request $request)
     {
         $request->validate([
+            'store_id' => 'required|exists:stores,id_store',
             'service_id' => 'required|exists:services,id_service',
             'capster_id' => 'nullable|exists:employees,id_employee',
-            'date' => 'required|date',
+            'date' => 'required|date|after_or_equal:today',
             'time' => 'required',
-            'customer_name' => 'required|string',
-            'customer_phone' => 'required|string',
-            'customer_email' => 'nullable|email',
-            'payment_method' => 'required|string',
+            'customer_name' => 'required|string|max:255',
+            'customer_phone' => 'required|string|max:20',
+            'customer_email' => 'nullable|email|max:255',
+            'payment_method' => 'required|in:qris,bank_transfer',
         ]);
 
-        $service = Service::find($request->service_id);
+        // Verifikasi bahwa Service benar-benar dari Store yang dipilih
+        $service = Service::where('id_service', $request->service_id)
+            ->where('id_store', $request->store_id)
+            ->first();
+
+        if (!$service) {
+            return response()->json(['status' => 'error', 'message' => 'Layanan yang dipilih tidak tersedia di cabang ini.'], 400);
+        }
+
+        // Verifikasi Capster jika dipilih
+        if ($request->capster_id) {
+            $capster = Employee::where('id_employee', $request->capster_id)
+                ->where('id_store', $request->store_id)
+                ->first();
+
+            if (!$capster) {
+                return response()->json(['status' => 'error', 'message' => 'Stylist yang dipilih tidak bertugas di cabang ini.'], 400);
+            }
+        }
 
         try {
             DB::beginTransaction();
 
             $reservation = new Reservation();
-            $reservation->id_store = 2; 
+            $reservation->id_store = $request->store_id; // Menggunakan Dinamis Store ID 
             $reservation->customer_name = $request->customer_name;
             $reservation->customer_phone = $request->customer_phone;
             $reservation->customer_email = $request->customer_email;
@@ -135,11 +162,10 @@ class BookingController extends Controller
 
             if ($request->payment_method == 'qris') {
                 $params['payment_type'] = 'qris';
-                $params['qris'] = ['acquirer' => 'gopay']; 
-            } 
-            elseif ($request->payment_method == 'bank_transfer') {
+                $params['qris'] = ['acquirer' => 'gopay'];
+            } elseif ($request->payment_method == 'bank_transfer') {
                 $params['payment_type'] = 'bank_transfer';
-                $params['bank_transfer'] = ['bank' => 'bca']; 
+                $params['bank_transfer'] = ['bank' => 'bca'];
             }
 
             $response = CoreApi::charge($params);
@@ -155,17 +181,15 @@ class BookingController extends Controller
             ];
 
             if ($request->payment_method == 'qris') {
-                $resultData['qr_image_url'] = $response->actions[0]->url ?? null; 
+                $resultData['qr_image_url'] = $response->actions[0]->url ?? null;
                 $resultData['expiration_time'] = $response->expiry_time ?? null;
-            } 
-            elseif ($request->payment_method == 'bank_transfer') {
+            } elseif ($request->payment_method == 'bank_transfer') {
                 $resultData['va_number'] = $response->va_numbers[0]->va_number ?? null;
                 $resultData['bank'] = 'BCA';
                 $resultData['expiration_time'] = $response->expiry_time ?? null;
             }
 
             return response()->json($resultData);
-
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
@@ -205,30 +229,23 @@ class BookingController extends Controller
 
             if ($isPaid) {
                 $parts = explode('-', $orderId);
-                $reservationId = $parts[1]; 
+                $reservationId = $parts[1];
 
                 $reservation = Reservation::with(['service', 'employee'])->find($reservationId);
-                
+
                 // Cek agar tidak kirim email double (Hanya jika status sebelumnya BUKAN approved)
-                if($reservation && $reservation->status !== 'approved') {
+                if ($reservation && $reservation->status !== 'approved') {
                     $reservation->status = 'approved';
                     $reservation->save();
 
-                    // --- MULAI PROSES EMAIL OTOMATIS ---
+                    // --- MULAI PROSES EMAIL OTOMATIS (DI LATAR BELAKANG) ---
                     if ($reservation->customer_email) {
                         try {
-                            // 1. Generate PDF dari View
-                            $pdf = Pdf::loadView('pdf.invoice', ['reservation' => $reservation]);
-                            $pdfOutput = $pdf->output(); // Ambil output mentah PDF-nya
-
-                            // 2. Kirim Email dengan Attachment
-                            Mail::to($reservation->customer_email)->send(new PaymentSuccessMail($reservation, $pdfOutput));
-                            
-                            Log::info("Email invoice terkirim ke: " . $reservation->customer_email);
-
+                            // Dispatch pekerjaan kirim email ke Queue
+                            \App\Jobs\ProcessPaymentSuccessEmail::dispatch($reservation);
+                            Log::info("Job email invoice di-dispatch untuk: " . $reservation->customer_email);
                         } catch (\Exception $e) {
-                            // Jangan biarkan error email menggagalkan status pembayaran
-                            Log::error("Gagal kirim email invoice: " . $e->getMessage());
+                            Log::error("Gagal men-dispatch job email invoice: " . $e->getMessage());
                         }
                     }
                     // --- SELESAI PROSES EMAIL ---
@@ -238,7 +255,6 @@ class BookingController extends Controller
             }
 
             return response()->json(['status' => 'pending']);
-
         } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()]);
         }
@@ -248,8 +264,13 @@ class BookingController extends Controller
     {
         $englishDay = date('l', strtotime($dateString));
         $days = [
-            'Sunday' => 'Minggu', 'Monday' => 'Senin', 'Tuesday' => 'Selasa',
-            'Wednesday' => 'Rabu', 'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu'
+            'Sunday' => 'Minggu',
+            'Monday' => 'Senin',
+            'Tuesday' => 'Selasa',
+            'Wednesday' => 'Rabu',
+            'Thursday' => 'Kamis',
+            'Friday' => 'Jumat',
+            'Saturday' => 'Sabtu'
         ];
         return $days[$englishDay] ?? 'Senin';
     }

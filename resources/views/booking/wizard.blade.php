@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Book Appointment - Tangwin Cut</title>
+    <link rel="icon" href="{{ asset('images/logo_tangwin_white.png') }}" type="image/png">
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
@@ -118,12 +119,12 @@
         <div class="w-full md:w-1/3 bg-[#111] border-b md:border-b-0 md:border-r border-white/5 p-4 md:p-8 flex flex-col md:justify-between relative flex-shrink-0">
             <div class="absolute top-0 left-0 w-full h-full opacity-5 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] pointer-events-none"></div>
 
-            <div class="relative z-10">
-                <a href="{{ route('home') }}" class="block mb-6 md:mb-12">
-                    <img src="{{ asset('images/logo_tangwin_white.png') }}" alt="Tangwin Logo" class="h-8 md:h-10 w-auto">
+            <div class="relative z-10 flex-1 flex flex-col justify-center">
+                <a href="{{ route('home') }}" class="block mb-6 md:mb-8">
+                    <img src="{{ asset('images/logo_tangwin_white.png') }}" alt="Tangwin Logo" class="h-16 md:h-16 w-auto">
                 </a>
 
-                <div class="space-y-3 md:space-y-6">
+                <div class="space-y-3 md:space-y-5">
                     <template x-for="(label, index) in steps" :key="index">
                         <div class="flex items-center space-x-4 group transition-all duration-300"
                             :class="currentStep > index + 1 ? 'text-[#C6A87C]' : (currentStep === index + 1 ? 'text-white' : 'text-gray-600')">
@@ -137,9 +138,13 @@
                 </div>
             </div>
 
-            <div class="relative z-10 mt-4 md:mt-auto pt-4 md:pt-8 border-t border-white/5">
-                <h4 class="text-[#C6A87C] text-xs uppercase tracking-widest mb-2 md:mb-4">Your Selection</h4>
+            <div class="relative z-10 mt-4 md:mt-4 pt-4 md:pt-4 border-t border-white/5 flex-shrink-0">
+                <h4 class="text-[#C6A87C] text-xs uppercase tracking-widest mb-2 md:mb-3">Your Selection</h4>
                 <div class="space-y-2 md:space-y-3 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Store</span>
+                        <span class="text-white text-right truncate w-32" x-text="selectedStore ? selectedStore.name : '-'"></span>
+                    </div>
                     <div class="flex justify-between">
                         <span class="text-gray-500">Service</span>
                         <span class="text-white text-right truncate w-32" x-text="selectedService ? selectedService.name : '-'"></span>
@@ -163,29 +168,37 @@
         <div class="w-full md:w-2/3 bg-[#0a0a0a] relative flex flex-col min-h-0 md:h-full md:overflow-hidden flex-shrink-0">
 
             <div class="md:hidden p-6 border-b border-white/10 flex justify-between items-center flex-shrink-0">
-                <span class="text-[#C6A87C] text-xs font-bold uppercase">Step <span x-text="currentStep"></span>/4</span>
+                <span class="text-[#C6A87C] text-xs font-bold uppercase">Step <span x-text="currentStep"></span>/5</span>
                 <a href="{{ route('home') }}" class="text-gray-500 hover:text-white">&times; Close</a>
             </div>
 
             <div class="flex-1 p-6 md:p-12 md:overflow-y-auto custom-scroll relative min-h-0 pb-24 md:pb-6">
 
+                <!-- Step 1: STORE -->
                 <div x-show="currentStep === 1" x-transition:enter="transition ease-out duration-500" x-transition:enter-start="opacity-0 translate-x-10" x-transition:enter-end="opacity-100 translate-x-0">
-                    <h2 class="text-4xl font-display text-white mb-2">Choose Service</h2>
-                    <p class="text-gray-500 mb-8">Pilih perawatan yang Anda butuhkan.</p>
+                    <h2 class="text-4xl font-display text-white mb-2">Choose Store</h2>
+                    <p class="text-gray-500 mb-8">Pilih lokasi cabang kami yang terdekat dari Anda.</p>
 
-                    <div class="grid grid-cols-1 gap-4 pb-4">
-                        @foreach($services as $service)
-                        <div @click="selectService({{ $service->id_service }}, '{{ $service->service_name }}', {{ $service->price }})"
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4">
+                        @foreach($stores as $store)
+                        <div @click="selectStore({{ $store->id_store }}, '{{ addslashes($store->store_name) }}')"
                             class="group relative p-6 border rounded-lg cursor-pointer transition-all duration-300 hover:bg-white/5"
-                            :class="selectedService && selectedService.id === {{ $service->id_service }} ? 'border-[#C6A87C] bg-white/5' : 'border-white/10'">
-                            <div class="flex justify-between items-center">
+                            :class="selectedStore && selectedStore.id == {{ $store->id_store }} ? 'border-[#C6A87C] bg-white/5 ring-1 ring-[#C6A87C]' : 'border-white/10'">
+                            <div class="flex justify-between items-start">
                                 <div>
-                                    <h3 class="text-xl font-display text-white group-hover:text-[#C6A87C] transition-colors">{{ $service->service_name }}</h3>
-                                    <p class="text-sm text-gray-500 mt-1">{{ $service->description }}</p>
+                                    <h3 class="text-xl font-display text-white group-hover:text-[#C6A87C] transition-colors gap-2 flex items-center">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        </svg>
+                                        {{ $store->store_name }}
+                                    </h3>
+                                    <p class="text-sm text-gray-500 mt-2 flex items-start gap-2 max-w-[200px]">
+                                        <span>{{ $store->address ?? 'Alamat belum tersedia' }}</span>
+                                    </p>
                                 </div>
-                                <span class="text-lg font-bold text-white">Rp {{ number_format($service->price, 0, ',', '.') }}</span>
                             </div>
-                            <div x-show="selectedService && selectedService.id === {{ $service->id_service }}" class="absolute top-4 right-4 text-[#C6A87C]">
+                            <div x-show="selectedStore && selectedStore.id == {{ $store->id_store }}" class="absolute -top-3 -right-3 bg-[#0a0a0a] rounded-full p-1 text-[#C6A87C]">
                                 <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
                                 </svg>
@@ -195,22 +208,53 @@
                     </div>
                 </div>
 
+                <!-- Step 2: SERVICE -->
                 <div x-show="currentStep === 2" x-cloak x-transition:enter="transition ease-out duration-500" x-transition:enter-start="opacity-0 translate-x-10" x-transition:enter-end="opacity-100 translate-x-0">
+                    <h2 class="text-4xl font-display text-white mb-2">Choose Service</h2>
+                    <p class="text-gray-500 mb-8">Pilih perawatan yang Anda butuhkan.</p>
+
+                    <div class="grid grid-cols-1 gap-4 pb-4">
+                        <!-- Filtering service based on store ID using Alpine template iteration or blade forelse depending on structure, mixed here -->
+                        @foreach($services as $service)
+                        <div x-show="selectedStore && selectedStore.id == {{ $service->id_store }}" @click="selectService({{ $service->id_service }}, '{{ addslashes($service->service_name) }}', {{ $service->price }})"
+                            class="group relative p-6 border rounded-lg cursor-pointer transition-all duration-300 hover:bg-white/5"
+                            :class="selectedService && selectedService.id == {{ $service->id_service }} ? 'border-[#C6A87C] bg-white/5' : 'border-white/10'">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h3 class="text-xl font-display text-white group-hover:text-[#C6A87C] transition-colors">{{ $service->service_name }}</h3>
+                                    <p class="text-sm text-gray-500 mt-1">{{ $service->description }}</p>
+                                </div>
+                                <span class="text-lg font-bold text-white">Rp {{ number_format($service->price, 0, ',', '.') }}</span>
+                            </div>
+                            <div x-show="selectedService && selectedService.id == {{ $service->id_service }}" class="absolute -top-3 -right-3 bg-[#0a0a0a] rounded-full p-1 text-[#C6A87C]">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                        </div>
+                        @endforeach
+                        <!-- Peringatan jika belum ada Service di toko tsb -->
+                        <div x-show="!hasServicesForSelectedStore" class="text-yellow-500 text-sm border border-yellow-500/30 bg-yellow-500/10 p-4 rounded text-center my-4">Belum ada layanan di cabang yang Anda pilih. Silakan pilih cabang lain.</div>
+                    </div>
+                </div>
+
+                <!-- Step 3: STYLIST -->
+                <div x-show="currentStep === 3" x-cloak x-transition:enter="transition ease-out duration-500" x-transition:enter-start="opacity-0 translate-x-10" x-transition:enter-end="opacity-100 translate-x-0">
                     <h2 class="text-4xl font-display text-white mb-2">Select Stylist</h2>
                     <p class="text-gray-500 mb-8">Siapa yang akan menangani gaya Anda hari ini?</p>
 
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 pb-4">
                         <div @click="selectCapster(null, 'Siapa Saja (Available)')" class="cursor-pointer group text-center">
                             <div class="relative h-40 w-full border border-white/10 rounded-lg mb-2 flex items-center justify-center bg-[#111] transition-all group-hover:border-[#C6A87C]"
-                                :class="selectedCapster === null && selectedCapsterName === 'Siapa Saja (Available)' ? 'border-[#C6A87C] ring-1 ring-[#C6A87C]' : ''">
+                                :class="selectedCapster == null && selectedCapsterName == 'Siapa Saja (Available)' ? 'border-[#C6A87C] ring-1 ring-[#C6A87C]' : ''">
                                 <span class="text-4xl text-gray-600 group-hover:text-[#C6A87C]">?</span>
                             </div>
                             <h3 class="text-white font-bold text-sm truncate">Bebas / Siapa Saja</h3>
                         </div>
                         @foreach($capsters as $capster)
-                        <div @click="selectCapster({{ $capster->id_employee }}, '{{ $capster->employee_name }}')" class="cursor-pointer group text-center">
+                        <div x-show="selectedStore && selectedStore.id == {{ $capster->id_store }}" @click="selectCapster({{ $capster->id_employee }}, '{{ addslashes($capster->employee_name) }}')" class="cursor-pointer group text-center">
                             <div class="relative h-40 w-full overflow-hidden rounded-lg mb-2 border border-transparent transition-all group-hover:border-[#C6A87C]"
-                                :class="selectedCapster && selectedCapster.id === {{ $capster->id_employee }} ? 'border-[#C6A87C] ring-1 ring-[#C6A87C]' : ''">
+                                :class="selectedCapster && selectedCapster.id == {{ $capster->id_employee }} ? 'border-[#C6A87C] ring-1 ring-[#C6A87C]' : ''">
                                 <img src="{{ $capster->photo_path ? asset('storage/' . $capster->photo_path) : 'https://ui-avatars.com/api/?name='.urlencode($capster->employee_name).'&background=1a1a1a&color=fff' }}"
                                     class="w-full h-full object-cover object-top grayscale group-hover:grayscale-0 transition-all duration-500">
                             </div>
@@ -220,7 +264,8 @@
                     </div>
                 </div>
 
-                <div x-show="currentStep === 3" x-cloak x-transition:enter="transition ease-out duration-500" x-transition:enter-start="opacity-0 translate-x-10" x-transition:enter-end="opacity-100 translate-x-0">
+                <!-- Step 4: DATE & TIME -->
+                <div x-show="currentStep === 4" x-cloak x-transition:enter="transition ease-out duration-500" x-transition:enter-start="opacity-0 translate-x-10" x-transition:enter-end="opacity-100 translate-x-0">
                     <h2 class="text-4xl font-display text-white mb-2">Date and Time</h2>
                     <p class="text-gray-500 mb-8">Pilih waktu yang sesuai untuk Anda.</p>
 
@@ -247,7 +292,8 @@
                     </div>
                 </div>
 
-                <div x-show="currentStep === 4" x-cloak x-transition:enter="transition ease-out duration-500" x-transition:enter-start="opacity-0 translate-x-10" x-transition:enter-end="opacity-100 translate-x-0">
+                <!-- Step 5: DETAILS -->
+                <div x-show="currentStep === 5" x-cloak x-transition:enter="transition ease-out duration-500" x-transition:enter-start="opacity-0 translate-x-10" x-transition:enter-end="opacity-100 translate-x-0">
                     <h2 class="text-4xl font-display text-white mb-2">Confirmation</h2>
                     <p class="text-gray-500 mb-8">Lengkapi data diri Anda.</p>
 
@@ -282,7 +328,7 @@
                 <button @click="prevStep()" x-show="currentStep > 1" class="text-gray-500 hover:text-white text-sm uppercase tracking-widest transition font-bold">&larr; Back</button>
                 <div x-show="currentStep === 1"></div>
                 <button @click="nextStep()" class="px-8 py-3 bg-[#C6A87C] hover:bg-white text-black font-bold uppercase tracking-widest text-sm transition-all duration-300 shadow-[0_0_15px_rgba(198,168,124,0.3)] disabled:opacity-50 disabled:cursor-not-allowed" :disabled="!canProceed()">
-                    <span x-text="currentStep === 4 ? 'Confirm Booking' : 'Next Step &rarr;'"></span>
+                    <span x-text="currentStep === 5 ? 'Confirm Booking' : 'Next Step &rarr;'"></span>
                 </button>
             </div>
         </div>
@@ -377,14 +423,18 @@
 
     <script>
         function bookingWizard() {
+            // Prep data from PHP to calculate dynamic states in frontend
+            const servicesData = @json($services);
+
             return {
                 currentStep: 1,
-                steps: ['Service', 'Stylist', 'Time', 'Confirm'],
+                steps: ['Store', 'Service', 'Stylist', 'Time', 'Confirm'],
                 showPaymentModal: false,
-                showSuccessAnimation: false, // WOW Factor
+                showSuccessAnimation: false,
                 paymentMethod: null,
                 paymentResult: null,
                 paymentCheckInterval: null,
+                selectedStore: null,
                 selectedService: null,
                 selectedCapster: null,
                 selectedCapsterName: '',
@@ -404,6 +454,26 @@
                     });
                 },
 
+                get hasServicesForSelectedStore() {
+                    if (!this.selectedStore) return false;
+                    return servicesData.some(s => s.id_store == this.selectedStore.id);
+                },
+
+                selectStore(id, name) {
+                    if (this.selectedStore && this.selectedStore.id !== id) {
+                        // Reset nested items if store changed
+                        this.selectedService = null;
+                        this.selectedCapster = null;
+                        this.selectedCapsterName = '';
+                        this.date = '';
+                        this.timeSlot = '';
+                        this.availableSlots = [];
+                    }
+                    this.selectedStore = {
+                        id,
+                        name
+                    };
+                },
                 selectService(id, name, price) {
                     this.selectedService = {
                         id,
@@ -424,13 +494,17 @@
                 },
 
                 fetchSlots() {
-                    if (!this.date) return;
+                    if (!this.date || !this.selectedStore) return;
                     this.isLoadingSlots = true;
                     this.availableSlots = [];
-                    let url = `{{ route('booking.slots') }}?date=${this.date}`;
+                    let url = `{{ route('booking.slots') }}?date=${this.date}&store_id=${this.selectedStore.id}`;
                     if (this.selectedCapster) url += `&employee_id=${this.selectedCapster.id}`;
                     fetch(url).then(r => r.json()).then(d => {
-                        this.availableSlots = d.slots;
+                        if (d.slots && Array.isArray(d.slots)) {
+                            this.availableSlots = d.slots;
+                        } else {
+                            this.availableSlots = [];
+                        }
                         this.isLoadingSlots = false;
                     }).catch(() => this.isLoadingSlots = false);
                 },
@@ -453,7 +527,7 @@
                 },
 
                 nextStep() {
-                    if (this.currentStep < 4) this.currentStep++;
+                    if (this.currentStep < 5) this.currentStep++;
                     else this.showPaymentModal = true;
                 },
                 prevStep() {
@@ -461,10 +535,11 @@
                 },
 
                 canProceed() {
-                    if (this.currentStep === 1) return this.selectedService !== null;
-                    if (this.currentStep === 2) return this.selectedCapsterName !== '';
-                    if (this.currentStep === 3) return this.date !== '' && this.timeSlot !== '';
-                    if (this.currentStep === 4) {
+                    if (this.currentStep === 1) return this.selectedStore !== null;
+                    if (this.currentStep === 2) return this.selectedService !== null;
+                    if (this.currentStep === 3) return this.selectedCapsterName !== '';
+                    if (this.currentStep === 4) return this.date !== '' && this.timeSlot !== '';
+                    if (this.currentStep === 5) {
                         return this.customerName !== '' &&
                             this.customerPhone !== '';
                     }
@@ -482,6 +557,7 @@
                             },
 
                             body: JSON.stringify({
+                                store_id: this.selectedStore.id,
                                 service_id: this.selectedService.id,
                                 capster_id: this.selectedCapster ? this.selectedCapster.id : null,
                                 date: this.date,
@@ -529,14 +605,14 @@
                                     // TRIGGER ANIMASI WOW
                                     this.showSuccessAnimation = true;
 
-                                    // Redirect ke Home setelah 4 detik
+                                    // Redirect ke Home setelah 2 detik
                                     setTimeout(() => {
                                         window.location.href = "{{ route('home') }}";
-                                    }, 4000);
+                                    }, 2000); // <-- Dipercepat jadi 2 detik
                                 }
                             })
                             .catch(err => console.error("Polling Error:", err));
-                    }, 5000); // Cek setiap 5 detik
+                    }, 2000); // <-- Dipercepat ngecek tiap 2 detik
                 }
             }
         }

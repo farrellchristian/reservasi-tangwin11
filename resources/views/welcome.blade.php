@@ -94,7 +94,7 @@
         <div class="max-w-[1400px] mx-auto px-6 lg:px-12">
             <div class="flex justify-between items-center">
                 <a href="#" class="z-50 relative group">
-                    <img src="{{ asset('images/logo_tangwin_white.png') }}" alt="Tangwin Logo" class="h-8 w-auto">
+                    <img src="{{ asset('images/logo_tangwin_white.png') }}" alt="Tangwin Logo" class="h-16 md:h-20 w-auto">
                 </a>
 
                 <div class="hidden md:flex items-center space-x-12">
@@ -139,7 +139,7 @@
             <div class="absolute inset-0 bg-gradient-to-r from-[#050505] via-[#050505]/70 to-transparent z-10"></div>
             <div class="absolute inset-0 bg-gradient-to-t from-[#050505] via-transparent to-transparent z-10"></div>
             <img src="https://images.unsplash.com/photo-1503951914875-452162b7f30a?q=80&w=2070&auto=format&fit=crop"
-                class="w-full h-full object-cover animate-slow-zoom opacity-60" alt="Tangwin Interior">
+                class="w-full h-full object-cover animate-slow-zoom opacity-60" alt="">
         </div>
 
         <div class="relative z-20 w-full max-w-[1400px] mx-auto px-6 lg:px-12 pt-20">
@@ -295,7 +295,7 @@
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-16 pb-20">
 
                 <div class="space-y-6">
-                    <img src="{{ asset('images/logo_tangwin_white.png') }}" alt="Tangwin Logo" class="h-10 w-auto">
+                    <img src="{{ asset('images/logo_tangwin_white.png') }}" alt="Tangwin Logo" class="h-24 md:h-32 w-auto">
                     <p class="text-gray-500 text-sm leading-relaxed max-w-xs">
                         Destinasi premier untuk pria modern. Kami menggabungkan teknik klasik dengan gaya kontemporer untuk menciptakan tampilan terbaik Anda.
                     </p>
