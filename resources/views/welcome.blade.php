@@ -101,6 +101,7 @@
                     <a href="#home" class="text-xs uppercase tracking-[0.2em] hover:text-[#C6A87C] transition-colors duration-300 text-white/80">Studio</a>
                     <a href="#services" class="text-xs uppercase tracking-[0.2em] hover:text-[#C6A87C] transition-colors duration-300 text-white/80">Services</a>
                     <a href="#capsters" class="text-xs uppercase tracking-[0.2em] hover:text-[#C6A87C] transition-colors duration-300 text-white/80">Team</a>
+                    <a href="{{ route('booking.check.form') }}" class="text-xs uppercase tracking-[0.2em] hover:text-[#C6A87C] transition-colors duration-300 text-white/80">Cek Pesanan</a>
 
                     <a href="{{ route('booking.form') }}" class="group relative px-8 py-3 bg-white/5 border border-white/10 overflow-hidden transition-all hover:border-[#C6A87C]/50">
                         <div class="absolute inset-0 w-0 bg-[#C6A87C] transition-all duration-[250ms] ease-out group-hover:w-full opacity-10"></div>
@@ -130,6 +131,7 @@
             <a @click="mobileMenu = false" href="#home" class="text-3xl font-display text-white hover:text-[#C6A87C]">Studio</a>
             <a @click="mobileMenu = false" href="#services" class="text-3xl font-display text-white hover:text-[#C6A87C]">Menu</a>
             <a @click="mobileMenu = false" href="#capsters" class="text-3xl font-display text-white hover:text-[#C6A87C]">Stylists</a>
+            <a href="{{ route('booking.check.form') }}" class="text-3xl font-display text-white hover:text-[#C6A87C]">Cek Pesanan</a>
             <a href="{{ route('booking.form') }}" class="px-8 py-4 bg-[#C6A87C] text-black font-bold uppercase tracking-widest mt-8">Book Now</a>
         </div>
     </div>

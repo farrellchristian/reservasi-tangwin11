@@ -344,63 +344,65 @@
 
             <div class="relative w-full max-w-2xl bg-[#0a0a0a] border border-[#C6A87C]/30 rounded-xl shadow-2xl overflow-hidden transform transition-all" x-transition>
 
-                <div x-show="!showSuccessAnimation">
-                    <div class="p-6 border-b border-white/10 flex justify-between items-center bg-[#111]">
+                <div x-show="!showSuccessAnimation" class="flex flex-col max-h-[92vh]">
+                    <div class="p-4 md:p-6 border-b border-white/10 flex justify-between items-center bg-[#111] flex-shrink-0">
                         <div>
-                            <h3 class="text-2xl font-display text-white" x-text="paymentResult ? 'Complete Payment' : 'Select Payment'"></h3>
-                            <p class="text-xs text-gray-500 uppercase tracking-widest mt-1" x-text="paymentResult ? 'Selesaikan pembayaran Anda' : 'Pilih metode pembayaran'"></p>
+                            <h3 class="text-xl md:text-2xl font-display text-white" x-text="paymentResult ? 'Complete Payment' : 'Select Payment'"></h3>
+                            <p class="text-[10px] md:text-xs text-gray-500 uppercase tracking-widest mt-1" x-text="paymentResult ? 'Selesaikan pembayaran Anda' : 'Pilih metode pembayaran'"></p>
                         </div>
-                        <button @click="showPaymentModal = false" class="text-gray-500 hover:text-white text-2xl">&times;</button>
+                        <button @click="showPaymentModal = false" class="text-gray-500 hover:text-white text-xl md:text-2xl">&times;</button>
                     </div>
 
-                    <div class="p-8 grid grid-cols-1 md:grid-cols-2 gap-6" x-show="!paymentResult">
-                        <div @click="paymentMethod = 'qris'" class="cursor-pointer group relative p-6 border rounded-xl transition-all duration-300 flex flex-col items-center text-center hover:bg-white/5" :class="paymentMethod === 'qris' ? 'border-[#C6A87C] bg-[#C6A87C]/5 ring-1 ring-[#C6A87C]' : 'border-white/10'">
-                            <div class="absolute top-3 right-3 px-2 py-1 bg-[#C6A87C] text-black text-[10px] font-bold uppercase tracking-wider rounded">Instant</div>
-                            <div class="w-16 h-16 mb-4 bg-white rounded-lg flex items-center justify-center">
-                                <svg class="w-10 h-10 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <rect x="3" y="3" width="7" height="7"></rect>
-                                    <rect x="14" y="3" width="7" height="7"></rect>
-                                    <rect x="14" y="14" width="7" height="7"></rect>
-                                    <rect x="3" y="14" width="7" height="7"></rect>
-                                </svg>
-                            </div>
-                            <h4 class="text-lg font-bold text-white mb-1">QRIS</h4>
-                            <p class="text-xs text-gray-500">Scan via GoPay, OVO, BCA, dll.</p>
-                        </div>
-
-                        <div @click="paymentMethod = 'bank_transfer'" class="cursor-pointer group relative p-6 border rounded-xl transition-all duration-300 flex flex-col items-center text-center hover:bg-white/5" :class="paymentMethod === 'bank_transfer' ? 'border-[#C6A87C] bg-[#C6A87C]/5 ring-1 ring-[#C6A87C]' : 'border-white/10'">
-                            <div class="w-16 h-16 mb-4 bg-[#222] border border-white/10 rounded-lg flex items-center justify-center">
-                                <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"></path>
-                                </svg>
-                            </div>
-                            <h4 class="text-lg font-bold text-white mb-1">Bank Transfer</h4>
-                            <p class="text-xs text-gray-500">Virtual Account BCA</p>
-                        </div>
-                    </div>
-
-                    <div class="p-8 text-center" x-show="paymentResult">
-                        <div x-show="paymentResult && paymentResult.payment_type === 'qris'" class="flex flex-col items-center">
-                            <p class="text-gray-400 text-sm mb-4">Scan QR code di bawah ini:</p>
-                            <div class="bg-white p-4 rounded-xl shadow-2xl shadow-[#C6A87C]/20 mb-6">
-                                <img :src="paymentResult ? paymentResult.qr_image_url : ''" alt="QRIS" class="w-64 h-64 object-contain">
-                            </div>
-                            <p class="text-[#C6A87C] text-xs uppercase tracking-widest animate-pulse">Menunggu Pembayaran Otomatis...</p>
-                        </div>
-
-                        <div x-show="paymentResult && paymentResult.payment_type === 'bank_transfer'" class="flex flex-col items-center">
-                            <p class="text-gray-400 text-sm mb-6">Transfer ke Virtual Account BCA:</p>
-                            <div class="bg-[#111] border border-white/10 p-6 rounded-xl w-full max-w-sm mb-6">
-                                <div class="flex items-center justify-center gap-3">
-                                    <span class="text-3xl font-display text-white tracking-widest" x-text="paymentResult ? paymentResult.va_number : ''"></span>
+                    <div class="overflow-y-auto custom-scroll flex-1">
+                        <div class="p-4 md:p-8 grid grid-cols-2 md:grid-cols-2 gap-3 md:gap-6" x-show="!paymentResult">
+                            <div @click="paymentMethod = 'qris'" class="cursor-pointer group relative p-4 md:p-6 border rounded-xl transition-all duration-300 flex flex-col items-center text-center hover:bg-white/5" :class="paymentMethod === 'qris' ? 'border-[#C6A87C] bg-[#C6A87C]/5 ring-1 ring-[#C6A87C]' : 'border-white/10'">
+                                <div class="absolute top-2 right-2 px-1.5 py-0.5 bg-[#C6A87C] text-black text-[8px] md:text-[10px] font-bold uppercase tracking-wider rounded">Instant</div>
+                                <div class="w-10 h-10 md:w-16 md:h-16 mb-2 md:mb-4 bg-white rounded-lg flex items-center justify-center">
+                                    <svg class="w-6 h-6 md:w-10 md:h-10 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="3" y="3" width="7" height="7"></rect>
+                                        <rect x="14" y="3" width="7" height="7"></rect>
+                                        <rect x="14" y="14" width="7" height="7"></rect>
+                                        <rect x="3" y="14" width="7" height="7"></rect>
+                                    </svg>
                                 </div>
+                                <h4 class="text-sm md:text-lg font-bold text-white mb-0.5 md:mb-1">QRIS</h4>
+                                <p class="text-[9px] md:text-xs text-gray-500">Scan via All Apps</p>
                             </div>
-                            <p class="text-[#C6A87C] text-xs uppercase tracking-widest animate-pulse">Menunggu Pembayaran Otomatis...</p>
+
+                            <div @click="paymentMethod = 'bank_transfer'" class="cursor-pointer group relative p-4 md:p-6 border rounded-xl transition-all duration-300 flex flex-col items-center text-center hover:bg-white/5" :class="paymentMethod === 'bank_transfer' ? 'border-[#C6A87C] bg-[#C6A87C]/5 ring-1 ring-[#C6A87C]' : 'border-white/10'">
+                                <div class="w-10 h-10 md:w-16 md:h-16 mb-2 md:mb-4 bg-[#222] border border-white/10 rounded-lg flex items-center justify-center">
+                                    <svg class="w-5 h-5 md:w-8 md:h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"></path>
+                                    </svg>
+                                </div>
+                                <h4 class="text-sm md:text-lg font-bold text-white mb-0.5 md:mb-1">Bank Transfer</h4>
+                                <p class="text-[9px] md:text-xs text-gray-500">Virtual Account</p>
+                            </div>
+                        </div>
+
+                        <div class="p-4 md:p-8 text-center" x-show="paymentResult">
+                            <div x-show="paymentResult && paymentResult.payment_type === 'qris'" class="flex flex-col items-center">
+                                <p class="text-gray-400 text-[10px] md:text-sm mb-3 md:mb-4">Scan QR code di bawah ini:</p>
+                                <div class="bg-white p-2 md:p-4 rounded-xl shadow-2xl shadow-[#C6A87C]/20 mb-4 md:mb-6">
+                                    <img :src="paymentResult ? paymentResult.qr_image_url : ''" alt="QRIS" class="w-48 h-48 md:w-64 md:h-64 object-contain mx-auto">
+                                </div>
+                                <p class="text-[#C6A87C] text-[8px] md:text-xs uppercase tracking-widest animate-pulse">Menunggu Pembayaran...</p>
+                            </div>
+
+                            <div x-show="paymentResult && paymentResult.payment_type === 'bank_transfer'" class="flex flex-col items-center">
+                                <p class="text-gray-400 text-[10px] md:text-sm mb-4 md:mb-6">Transfer ke Virtual Account BCA:</p>
+                                <div class="bg-[#111] border border-white/10 p-4 md:p-6 rounded-xl w-full max-w-sm mb-4 md:mb-6 mx-auto">
+                                    <div class="flex items-center justify-center gap-2 md:gap-3">
+                                        <span class="text-xl md:text-3xl font-display text-white tracking-widest" x-text="paymentResult ? paymentResult.va_number : ''"></span>
+                                    </div>
+                                </div>
+                                <p class="text-[#C6A87C] text-[8px] md:text-xs uppercase tracking-widest animate-pulse">Menunggu Pembayaran...</p>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="p-6 border-t border-white/10 bg-[#050505] flex justify-end" x-show="!paymentResult">
-                        <button @click="processPaymentCore()" :disabled="!paymentMethod" class="px-8 py-3 bg-[#C6A87C] text-black font-bold uppercase tracking-widest text-sm transition-all duration-300 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed">
+                    <div class="p-4 md:p-6 border-t border-white/10 bg-[#050505] flex justify-end flex-shrink-0" x-show="!paymentResult">
+                        <button @click="processPaymentCore()" :disabled="!paymentMethod" class="w-full md:w-auto px-8 py-2 md:py-3 bg-[#C6A87C] text-black font-bold uppercase tracking-widest text-[10px] md:text-sm transition-all duration-300 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed">
                             Pay Now
                         </button>
                     </div>
