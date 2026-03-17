@@ -179,9 +179,9 @@
         <div x-show="showRefundModal" x-cloak class="fixed inset-0 z-[60] flex items-center justify-center px-4" x-transition.opacity>
             <div class="absolute inset-0 bg-black/90 backdrop-blur-sm" @click="showRefundModal = false"></div>
 
-            <div class="relative w-full max-w-lg bg-[#0a0a0a] border border-[#C6A87C]/30 rounded-xl shadow-2xl overflow-hidden transform transition-all" x-transition>
+            <div class="relative w-full max-w-lg bg-[#0a0a0a] border border-[#C6A87C]/30 rounded-xl shadow-2xl overflow-hidden transform transition-all flex flex-col max-h-[90vh]" x-transition>
 
-                <div class="p-6 border-b border-white/10 flex justify-between items-center bg-[#111]">
+                <div class="p-6 border-b border-white/10 flex justify-between items-center bg-[#111] flex-shrink-0">
                     <div>
                         <h3 class="text-xl font-display text-white">Pengajuan Refund</h3>
                         <p class="text-xs text-gray-500 mt-1">Isi data rekening tujuan refund</p>
@@ -189,7 +189,7 @@
                     <button @click="showRefundModal = false" class="text-gray-500 hover:text-white text-2xl">&times;</button>
                 </div>
 
-                <form action="{{ route('booking.check.cancel') }}" method="POST" class="p-6 space-y-4">
+                <form action="{{ route('booking.check.cancel') }}" method="POST" class="flex-1 overflow-y-auto custom-scroll p-6 space-y-4">
                     @csrf
                     <input type="hidden" name="id_reservation" value="{{ $reservation->id_reservation }}">
 
@@ -199,25 +199,25 @@
 
                     <div>
                         <label class="block text-xs uppercase tracking-widest text-gray-400 mb-2">Nama Bank / E-Wallet</label>
-                        <input type="text" name="bank_name" required placeholder="Contoh: BCA / GoPay" class="w-full bg-[#111] border border-white/10 rounded-lg p-3 text-white focus:border-[#C6A87C] focus:ring-1 focus:ring-[#C6A87C] transition outline-none">
+                        <input type="text" name="bank_name" required placeholder="Contoh: BCA / GoPay" class="w-full bg-[#111] border border-white/10 rounded-lg p-3 text-white focus:border-[#C6A87C] focus:ring-1 focus:ring-[#C6A87C] transition outline-none text-sm">
                     </div>
 
                     <div>
                         <label class="block text-xs uppercase tracking-widest text-gray-400 mb-2">Nomor Rekening / No. HP</label>
-                        <input type="text" name="account_number" required placeholder="Masukkan nomor" class="w-full bg-[#111] border border-white/10 rounded-lg p-3 text-white focus:border-[#C6A87C] focus:ring-1 focus:ring-[#C6A87C] transition outline-none">
+                        <input type="text" name="account_number" required placeholder="Masukkan nomor" class="w-full bg-[#111] border border-white/10 rounded-lg p-3 text-white focus:border-[#C6A87C] focus:ring-1 focus:ring-[#C6A87C] transition outline-none text-sm">
                     </div>
 
                     <div>
                         <label class="block text-xs uppercase tracking-widest text-gray-400 mb-2">Atas Nama (Sesuai Rekening)</label>
-                        <input type="text" name="account_name" required placeholder="Nama pemilik rekening" class="w-full bg-[#111] border border-white/10 rounded-lg p-3 text-white focus:border-[#C6A87C] focus:ring-1 focus:ring-[#C6A87C] transition outline-none">
+                        <input type="text" name="account_name" required placeholder="Nama pemilik rekening" class="w-full bg-[#111] border border-white/10 rounded-lg p-3 text-white focus:border-[#C6A87C] focus:ring-1 focus:ring-[#C6A87C] transition outline-none text-sm">
                     </div>
 
                     <div>
                         <label class="block text-xs uppercase tracking-widest text-gray-400 mb-2">Alasan Pembatalan</label>
-                        <textarea name="cancel_reason" required rows="2" placeholder="Tulis alasan singkat..." class="w-full bg-[#111] border border-white/10 rounded-lg p-3 text-white focus:border-[#C6A87C] focus:ring-1 focus:ring-[#C6A87C] transition outline-none"></textarea>
+                        <textarea name="cancel_reason" required rows="2" placeholder="Tulis alasan singkat..." class="w-full bg-[#111] border border-white/10 rounded-lg p-3 text-white focus:border-[#C6A87C] focus:ring-1 focus:ring-[#C6A87C] transition outline-none text-xs"></textarea>
                     </div>
 
-                    <div class="pt-4 flex justify-end gap-3 border-t border-white/10 mt-6">
+                    <div class="pt-4 flex justify-end gap-3 border-t border-white/10 mt-6 pb-2">
                         <button type="button" @click="showRefundModal = false" class="px-5 py-2.5 text-sm text-gray-400 hover:text-white transition">Batal</button>
                         <button type="submit" class="px-5 py-2.5 bg-red-800 hover:bg-red-700 text-white font-bold uppercase tracking-widest text-xs rounded transition shadow-lg shadow-red-900/50">Konfirmasi Pembatalan</button>
                     </div>
