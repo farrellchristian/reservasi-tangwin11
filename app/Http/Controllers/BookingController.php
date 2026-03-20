@@ -63,10 +63,10 @@ class BookingController extends Controller
                 ->where('status', '!=', 'canceled')
                 ->where('status', '!=', 'expired')
                 ->where(function ($q) use ($employeeId) {
-                    if ($employeeId) {
-                        $q->where('id_employee', $employeeId);
-                    }
-                })
+                if ($employeeId) {
+                    $q->where('id_employee', $employeeId);
+                }
+            })
                 ->count();
 
             if ($bookedCount < $slot->quota) {
@@ -137,7 +137,7 @@ class BookingController extends Controller
             Config::$is3ds = config('midtrans.is_3ds');
 
             $orderId = 'BOOK-' . $reservation->id_reservation . '-' . time();
-            $grossAmount = (int) $service->price;
+            $grossAmount = (int)$service->price;
 
             $params = [
                 'payment_type' => '',
@@ -163,7 +163,8 @@ class BookingController extends Controller
             if ($request->payment_method == 'qris') {
                 $params['payment_type'] = 'qris';
                 $params['qris'] = ['acquirer' => 'gopay'];
-            } elseif ($request->payment_method == 'bank_transfer') {
+            }
+            elseif ($request->payment_method == 'bank_transfer') {
                 $params['payment_type'] = 'bank_transfer';
                 $params['bank_transfer'] = ['bank' => 'bca'];
             }
@@ -183,14 +184,16 @@ class BookingController extends Controller
             if ($request->payment_method == 'qris') {
                 $resultData['qr_image_url'] = $response->actions[0]->url ?? null;
                 $resultData['expiration_time'] = $response->expiry_time ?? null;
-            } elseif ($request->payment_method == 'bank_transfer') {
+            }
+            elseif ($request->payment_method == 'bank_transfer') {
                 $resultData['va_number'] = $response->va_numbers[0]->va_number ?? null;
                 $resultData['bank'] = 'BCA';
                 $resultData['expiration_time'] = $response->expiry_time ?? null;
             }
 
             return response()->json($resultData);
-        } catch (\Exception $e) {
+        }
+        catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
@@ -215,15 +218,19 @@ class BookingController extends Controller
 
             if ($transactionStatus == 'capture') {
                 if ($fraudStatus == 'challenge') {
-                    // Challenge
-                } else {
+                // Challenge
+                }
+                else {
                     $isPaid = true;
                 }
-            } else if ($transactionStatus == 'settlement') {
+            }
+            else if ($transactionStatus == 'settlement') {
                 $isPaid = true;
-            } else if ($transactionStatus == 'pending') {
+            }
+            else if ($transactionStatus == 'pending') {
                 $isPaid = false;
-            } else if ($transactionStatus == 'deny' || $transactionStatus == 'expire' || $transactionStatus == 'cancel') {
+            }
+            else if ($transactionStatus == 'deny' || $transactionStatus == 'expire' || $transactionStatus == 'cancel') {
                 return response()->json(['status' => 'failed']);
             }
 
@@ -244,18 +251,20 @@ class BookingController extends Controller
                             // Dispatch pekerjaan kirim email ke Queue
                             \App\Jobs\ProcessPaymentSuccessEmail::dispatch($reservation);
                             Log::info("Job email invoice di-dispatch untuk: " . $reservation->customer_email);
-                        } catch (\Exception $e) {
+                        }
+                        catch (\Exception $e) {
                             Log::error("Gagal men-dispatch job email invoice: " . $e->getMessage());
                         }
                     }
-                    // --- SELESAI PROSES EMAIL ---
+                // --- SELESAI PROSES EMAIL ---
                 }
 
                 return response()->json(['status' => 'paid']);
             }
 
             return response()->json(['status' => 'pending']);
-        } catch (\Exception $e) {
+        }
+        catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()]);
         }
     }
@@ -273,5 +282,91 @@ class BookingController extends Controller
             'Saturday' => 'Sabtu'
         ];
         return $days[$englishDay] ?? 'Senin';
+    }
+
+    // --- WEBHOOK: Midtrans Notification Handler (Production) ---
+    public function handleNotification(Request $request)
+    {
+        Log::info('Midtrans Webhook diterima', $request->all());
+
+        try {
+            $serverKey = config('midtrans.server_key');
+            $notification = $request->all();
+
+            // 1. Verifikasi Signature Hash (Keamanan)
+            $orderId = $notification['order_id'];
+            $statusCode = $notification['status_code'];
+            $grossAmount = $notification['gross_amount'];
+            $signatureKey = $notification['signature_key'] ?? '';
+
+            $expectedSignature = hash('sha512', $orderId . $statusCode . $grossAmount . $serverKey);
+
+            if ($signatureKey !== $expectedSignature) {
+                Log::warning('Midtrans Webhook: Signature tidak valid untuk order ' . $orderId);
+                return response()->json(['message' => 'Invalid signature'], 403);
+            }
+
+            // 2. Proses Status Transaksi
+            $transactionStatus = $notification['transaction_status'];
+            $fraudStatus = $notification['fraud_status'] ?? 'accept';
+
+            // Ambil reservation ID dari order_id (format: BOOK-{ID}-{TIMESTAMP})
+            $parts = explode('-', $orderId);
+            if (count($parts) < 2) {
+                Log::error('Midtrans Webhook: Format order_id tidak valid: ' . $orderId);
+                return response()->json(['message' => 'Invalid order_id format'], 400);
+            }
+            $reservationId = $parts[1];
+            $reservation = Reservation::with(['service', 'employee'])->find($reservationId);
+
+            if (!$reservation) {
+                Log::error('Midtrans Webhook: Reservasi tidak ditemukan: ' . $reservationId);
+                return response()->json(['message' => 'Reservation not found'], 404);
+            }
+
+            // 3. Update status berdasarkan notification
+            if ($transactionStatus == 'capture' || $transactionStatus == 'settlement') {
+                if ($transactionStatus == 'capture' && $fraudStatus == 'challenge') {
+                    Log::info('Midtrans Webhook: Transaksi CHALLENGE untuk order ' . $orderId);
+                    return response()->json(['message' => 'Transaction challenged']);
+                }
+
+                // Pembayaran BERHASIL - Update status & kirim email
+                if ($reservation->status !== 'approved') {
+                    $reservation->status = 'approved';
+                    $reservation->save();
+
+                    Log::info('Midtrans Webhook: Reservasi #' . $reservationId . ' diubah ke approved');
+
+                    // Kirim email invoice
+                    if ($reservation->customer_email) {
+                        try {
+                            \App\Jobs\ProcessPaymentSuccessEmail::dispatch($reservation);
+                            Log::info('Midtrans Webhook: Job email invoice di-dispatch untuk ' . $reservation->customer_email);
+                        }
+                        catch (\Exception $e) {
+                            Log::error('Midtrans Webhook: Gagal dispatch email: ' . $e->getMessage());
+                        }
+                    }
+                }
+            }
+            elseif ($transactionStatus == 'cancel' || $transactionStatus == 'deny' || $transactionStatus == 'expire') {
+                // Pembayaran GAGAL/EXPIRED
+                if ($reservation->status === 'pending') {
+                    $reservation->status = 'expired';
+                    $reservation->save();
+                    Log::info('Midtrans Webhook: Reservasi #' . $reservationId . ' diubah ke expired');
+                }
+            }
+            elseif ($transactionStatus == 'pending') {
+                Log::info('Midtrans Webhook: Pembayaran masih pending untuk order ' . $orderId);
+            }
+
+            return response()->json(['message' => 'Notification processed']);
+        }
+        catch (\Exception $e) {
+            Log::error('Midtrans Webhook Error: ' . $e->getMessage());
+            return response()->json(['message' => 'Internal error'], 500);
+        }
     }
 }

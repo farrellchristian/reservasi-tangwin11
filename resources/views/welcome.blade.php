@@ -18,6 +18,8 @@
 
     <style>
         /* CUSTOM CSS UTILITIES */
+        [x-cloak] { display: none !important; }
+
         body {
             font-family: 'Manrope', sans-serif;
             background-color: #050505;
@@ -119,7 +121,7 @@
         </div>
     </nav>
 
-    <div x-show="mobileMenu"
+    <div x-show="mobileMenu" x-cloak
         x-transition:enter="transition ease-out duration-300"
         x-transition:enter-start="opacity-0 translate-y-full"
         x-transition:enter-end="opacity-100 translate-y-0"
