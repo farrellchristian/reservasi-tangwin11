@@ -109,13 +109,13 @@
     </style>
 </head>
 
-<body class="text-gray-300 h-screen w-screen overflow-hidden flex items-center justify-center bg-[url('https://images.unsplash.com/photo-1634480496840-b3654a5253e8?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center">
+<body class="text-gray-300 min-h-screen w-screen flex items-center justify-center bg-[url('https://images.unsplash.com/photo-1634480496840-b3654a5253e8?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center">
 
     <div class="absolute inset-0 bg-black/80 backdrop-blur-sm z-0"></div>
 
-    <div class="relative z-10 w-full max-w-5xl h-full md:h-[85vh] bg-[#0a0a0a] border border-white/10 shadow-2xl flex flex-col md:flex-row overflow-y-auto md:overflow-hidden animate-fade-in-up"
+    <div class="relative z-10 w-full max-w-5xl h-screen md:h-[85vh] bg-[#0a0a0a] border border-white/10 shadow-2xl flex flex-col md:flex-row md:overflow-hidden animate-fade-in-up"
         x-data="bookingWizard()">
-
+        
         <div class="w-full md:w-1/3 bg-[#111] border-b md:border-b-0 md:border-r border-white/5 p-4 md:p-8 flex flex-col md:justify-between relative flex-shrink-0">
             <div class="absolute top-0 left-0 w-full h-full opacity-5 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] pointer-events-none"></div>
 
@@ -167,12 +167,12 @@
 
         <div class="w-full md:w-2/3 bg-[#0a0a0a] relative flex flex-col min-h-0 md:h-full md:overflow-hidden flex-shrink-0">
 
-            <div class="md:hidden p-6 border-b border-white/10 flex justify-between items-center flex-shrink-0">
+            <div class="md:hidden p-6 border-b border-white/10 flex justify-between items-center flex-shrink-0 transition-all">
                 <span class="text-[#C6A87C] text-xs font-bold uppercase">Step <span x-text="currentStep"></span>/5</span>
                 <a href="{{ route('home') }}" class="text-gray-500 hover:text-white">&times; Close</a>
             </div>
 
-            <div class="flex-1 p-6 md:p-12 md:overflow-y-auto custom-scroll relative min-h-0 pb-24 md:pb-6">
+            <div class="flex-1 p-6 md:p-12 overflow-y-auto custom-scroll relative min-h-0 pb-32 md:pb-6">
 
                 <!-- Step 1: STORE -->
                 <div x-show="currentStep === 1" x-transition:enter="transition ease-out duration-500" x-transition:enter-start="opacity-0 translate-x-10" x-transition:enter-end="opacity-100 translate-x-0">
@@ -327,7 +327,7 @@
             <div class="p-4 md:p-8 border-t border-white/10 bg-[#0a0a0a] flex justify-between items-center flex-shrink-0 fixed bottom-0 left-0 right-0 z-20 md:static md:relative">
                 <button @click="prevStep()" x-show="currentStep > 1" class="text-gray-500 hover:text-white text-sm uppercase tracking-widest transition font-bold">&larr; Back</button>
                 <div x-show="currentStep === 1"></div>
-                <button @click="nextStep()" class="px-8 py-3 bg-[#C6A87C] hover:bg-white text-black font-bold uppercase tracking-widest text-sm transition-all duration-300 shadow-[0_0_15px_rgba(198,168,124,0.3)] disabled:opacity-50 disabled:cursor-not-allowed" :disabled="!canProceed()">
+                <button @click="nextStep()" class="px-8 py-3 bg-[#C6A87C] hover:bg-white text-black font-bold uppercase tracking-widest text-sm transition-all duration-300 shadow-[0_0_15px_rgba(198,168,124,0.3)] disabled:opacity-50 disabled:cursor-not-allowed" :disabled="!canProceed() || isProcessingPayment">
                     <span x-text="currentStep === 5 ? 'Confirm Booking' : 'Next Step &rarr;'"></span>
                 </button>
             </div>
@@ -338,19 +338,17 @@
             <p class="text-[#C6A87C] text-lg font-display tracking-widest animate-pulse">Processing Payment...</p>
         </div>
 
+        <!-- ... payment modal part ... -->
         <div x-show="showPaymentModal" x-cloak class="fixed inset-0 z-[60] flex items-center justify-center px-4" x-transition>
-
-            <div class="absolute inset-0 bg-black/90" @click="if(!showSuccessAnimation) showPaymentModal = false"></div>
-
+            <div class="absolute inset-0 bg-black/90" @click="if(!showSuccessAnimation && !isProcessingPayment) showPaymentModal = false"></div>
             <div class="relative w-full max-w-2xl bg-[#0a0a0a] border border-[#C6A87C]/30 rounded-xl shadow-2xl overflow-hidden transform transition-all" x-transition>
-
                 <div x-show="!showSuccessAnimation" class="flex flex-col max-h-[92vh]">
                     <div class="p-4 md:p-6 border-b border-white/10 flex justify-between items-center bg-[#111] flex-shrink-0">
                         <div>
                             <h3 class="text-xl md:text-2xl font-display text-white" x-text="paymentResult ? 'Complete Payment' : 'Select Payment'"></h3>
                             <p class="text-[10px] md:text-xs text-gray-500 uppercase tracking-widest mt-1" x-text="paymentResult ? 'Selesaikan pembayaran Anda' : 'Pilih metode pembayaran'"></p>
                         </div>
-                        <button @click="showPaymentModal = false" class="text-gray-500 hover:text-white text-xl md:text-2xl">&times;</button>
+                        <button @click="showPaymentModal = false" :disabled="isProcessingPayment" class="text-gray-500 hover:text-white text-xl md:text-2xl disabled:opacity-30">&times;</button>
                     </div>
 
                     <div class="overflow-y-auto custom-scroll flex-1">
@@ -376,7 +374,7 @@
                                     </svg>
                                 </div>
                                 <h4 class="text-sm md:text-lg font-bold text-white mb-0.5 md:mb-1">Bank Transfer</h4>
-                                <p class="text-[9px] md:text-xs text-gray-500">Virtual Account</p>
+                                <p class="text-[9px] md:text-xs text-gray-500">Virtual Account (BCA)</p>
                             </div>
                         </div>
 
@@ -402,8 +400,9 @@
                     </div>
 
                     <div class="p-4 md:p-6 border-t border-white/10 bg-[#050505] flex justify-end flex-shrink-0" x-show="!paymentResult">
-                        <button @click="processPaymentCore()" :disabled="!paymentMethod" class="w-full md:w-auto px-8 py-2 md:py-3 bg-[#C6A87C] text-black font-bold uppercase tracking-widest text-[10px] md:text-sm transition-all duration-300 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed">
-                            Pay Now
+                        <button @click="processPaymentCore()" :disabled="!paymentMethod || isProcessingPayment" class="w-full md:w-auto px-8 py-2 md:py-3 bg-[#C6A87C] text-black font-bold uppercase tracking-widest text-[10px] md:text-sm transition-all duration-300 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed">
+                            <span x-show="!isProcessingPayment">Pay Now</span>
+                            <span x-show="isProcessingPayment">Processing...</span>
                         </button>
                     </div>
                 </div>

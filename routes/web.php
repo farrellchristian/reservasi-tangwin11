@@ -22,3 +22,6 @@ Route::post('/booking/process', [BookingController::class, 'processBooking'])->n
 
 // Route Cek Status Pembayaran (Polling)
 Route::get('/booking/check-status', [BookingController::class, 'checkPaymentStatus'])->name('booking.check');
+
+// Route Midtrans Webhook Notification (Production)
+Route::post('/midtrans/callback', [BookingController::class, 'handleNotification'])->name('midtrans.callback');
