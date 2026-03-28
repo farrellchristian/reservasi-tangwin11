@@ -92,7 +92,7 @@ class BookingController extends Controller
             'customer_name' => 'required|string|max:255',
             'customer_phone' => 'required|string|max:20',
             'customer_email' => 'nullable|email|max:255',
-            'payment_method' => 'required|in:qris,bank_transfer',
+            'payment_method' => 'required|in:qris,bank_transfer,cash',
         ]);
 
         // Verifikasi bahwa Service benar-benar dari Store yang dipilih
@@ -118,8 +118,46 @@ class BookingController extends Controller
         try {
             DB::beginTransaction();
 
+            // === RACE CONDITION PROTECTION ===
+            // Cek ulang ketersediaan slot di dalam transaksi dengan lock
+            $dayName = $this->getDayNameIndonesian($request->date);
+
+            $slot = DB::table('reservation_slots')
+                ->where('day_of_week', $dayName)
+                ->where('slot_time', $request->time)
+                ->where('id_store', $request->store_id)
+                ->where('is_active', 1)
+                ->first();
+
+            if (!$slot) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Slot waktu yang dipilih tidak tersedia.'
+                ], 409);
+            }
+
+            // Lock baris reservasi yang relevan agar proses lain menunggu
+            $bookedCount = DB::table('reservations')
+                ->where('booking_date', $request->date)
+                ->where('booking_time', $request->time)
+                ->where('id_store', $request->store_id)
+                ->where('status', '!=', 'canceled')
+                ->where('status', '!=', 'expired')
+                ->lockForUpdate()
+                ->count();
+
+            if ($bookedCount >= $slot->quota) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Maaf, slot ini baru saja terisi oleh pelanggan lain. Silakan pilih waktu lain.'
+                ], 409);
+            }
+            // === END RACE CONDITION PROTECTION ===
+
             $reservation = new Reservation();
-            $reservation->id_store = $request->store_id; // Menggunakan Dinamis Store ID 
+            $reservation->id_store = $request->store_id;
             $reservation->customer_name = $request->customer_name;
             $reservation->customer_phone = $request->customer_phone;
             $reservation->customer_email = $request->customer_email;
@@ -128,6 +166,7 @@ class BookingController extends Controller
             $reservation->id_service = $service->id_service;
             $reservation->id_employee = $request->capster_id;
             $reservation->status = 'pending';
+            $reservation->payment_type = $request->payment_method;
             $reservation->notes = $request->notes;
             $reservation->save();
 
@@ -157,9 +196,28 @@ class BookingController extends Controller
                         'quantity' => 1,
                         'name' => substr($service->service_name, 0, 50),
                     ]
-                ]
+                ],
+                'expiry' => [
+                    'start_time' => date("Y-m-d H:i:s O"),
+                    'unit' => 'minute',
+                    'duration' => 10
+                ],
             ];
 
+            // === CASH: Skip Midtrans, langsung konfirmasi ===
+            if ($request->payment_method == 'cash') {
+                DB::commit();
+
+                return response()->json([
+                    'status' => 'success',
+                    'payment_type' => 'cash',
+                    'order_id' => $orderId,
+                    'reservation_id' => $reservation->id_reservation,
+                    'amount' => $grossAmount,
+                ]);
+            }
+
+            // === ONLINE PAYMENT: Proses via Midtrans ===
             if ($request->payment_method == 'qris') {
                 $params['payment_type'] = 'qris';
                 $params['qris'] = ['acquirer' => 'gopay'];

@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tangwin Cut - The Gentleman's Lounge</title>
+    <link rel="icon" href="{{ asset('images/logo_tangwin_white.png') }}" type="image/png">
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 

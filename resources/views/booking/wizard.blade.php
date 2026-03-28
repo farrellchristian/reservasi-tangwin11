@@ -32,6 +32,23 @@
             font-family: 'Italiana', serif;
         }
 
+        .countdown-glow {
+            text-shadow: 0 0 15px rgba(198, 168, 124, 0.4);
+        }
+
+        /* Custom Toast Notification */
+        .toast-enter { animation: toastSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .toast-leave { animation: toastSlideOut 0.3s ease-in forwards; }
+
+        @keyframes toastSlideIn {
+            from { transform: translateY(-20px) scale(0.95); opacity: 0; }
+            to { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        @keyframes toastSlideOut {
+            from { transform: translateY(0) scale(1); opacity: 1; }
+            to { transform: translateY(-20px) scale(0.95); opacity: 0; }
+        }
+
         .custom-scroll::-webkit-scrollbar {
             width: 4px;
         }
@@ -352,8 +369,8 @@
                     </div>
 
                     <div class="overflow-y-auto custom-scroll flex-1">
-                        <div class="p-4 md:p-8 grid grid-cols-2 md:grid-cols-2 gap-3 md:gap-6" x-show="!paymentResult">
-                            <div @click="paymentMethod = 'qris'" class="cursor-pointer group relative p-4 md:p-6 border rounded-xl transition-all duration-300 flex flex-col items-center text-center hover:bg-white/5" :class="paymentMethod === 'qris' ? 'border-[#C6A87C] bg-[#C6A87C]/5 ring-1 ring-[#C6A87C]' : 'border-white/10'">
+                        <div class="p-4 md:p-8 grid grid-cols-3 gap-2 md:gap-6" x-show="!paymentResult">
+                            <div @click="paymentMethod = 'qris'" class="cursor-pointer group relative p-3 md:p-6 border rounded-xl transition-all duration-300 flex flex-col items-center text-center hover:bg-white/5" :class="paymentMethod === 'qris' ? 'border-[#C6A87C] bg-[#C6A87C]/5 ring-1 ring-[#C6A87C]' : 'border-white/10'">
                                 <div class="absolute top-2 right-2 px-1.5 py-0.5 bg-[#C6A87C] text-black text-[8px] md:text-[10px] font-bold uppercase tracking-wider rounded">Instant</div>
                                 <div class="w-10 h-10 md:w-16 md:h-16 mb-2 md:mb-4 bg-white rounded-lg flex items-center justify-center">
                                     <svg class="w-6 h-6 md:w-10 md:h-10 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -367,7 +384,7 @@
                                 <p class="text-[9px] md:text-xs text-gray-500">Scan via All Apps</p>
                             </div>
 
-                            <div @click="paymentMethod = 'bank_transfer'" class="cursor-pointer group relative p-4 md:p-6 border rounded-xl transition-all duration-300 flex flex-col items-center text-center hover:bg-white/5" :class="paymentMethod === 'bank_transfer' ? 'border-[#C6A87C] bg-[#C6A87C]/5 ring-1 ring-[#C6A87C]' : 'border-white/10'">
+                            <div @click="paymentMethod = 'bank_transfer'" class="cursor-pointer group relative p-3 md:p-6 border rounded-xl transition-all duration-300 flex flex-col items-center text-center hover:bg-white/5" :class="paymentMethod === 'bank_transfer' ? 'border-[#C6A87C] bg-[#C6A87C]/5 ring-1 ring-[#C6A87C]' : 'border-white/10'">
                                 <div class="w-10 h-10 md:w-16 md:h-16 mb-2 md:mb-4 bg-[#222] border border-white/10 rounded-lg flex items-center justify-center">
                                     <svg class="w-5 h-5 md:w-8 md:h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"></path>
@@ -376,15 +393,32 @@
                                 <h4 class="text-sm md:text-lg font-bold text-white mb-0.5 md:mb-1">Bank Transfer</h4>
                                 <p class="text-[9px] md:text-xs text-gray-500">Virtual Account (BCA)</p>
                             </div>
+
+                            <div @click="paymentMethod = 'cash'" class="cursor-pointer group relative p-3 md:p-6 border rounded-xl transition-all duration-300 flex flex-col items-center text-center hover:bg-white/5" :class="paymentMethod === 'cash' ? 'border-[#C6A87C] bg-[#C6A87C]/5 ring-1 ring-[#C6A87C]' : 'border-white/10'">
+                                <div class="w-10 h-10 md:w-16 md:h-16 mb-2 md:mb-4 bg-[#222] border border-white/10 rounded-lg flex items-center justify-center">
+                                    <svg class="w-5 h-5 md:w-8 md:h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"></path>
+                                    </svg>
+                                </div>
+                                <h4 class="text-sm md:text-lg font-bold text-white mb-0.5 md:mb-1">Cash</h4>
+                                <p class="text-[9px] md:text-xs text-gray-500">Bayar di Tempat</p>
+                            </div>
                         </div>
 
                         <div class="p-4 md:p-8 text-center" x-show="paymentResult">
                             <div x-show="paymentResult && paymentResult.payment_type === 'qris'" class="flex flex-col items-center">
                                 <p class="text-gray-400 text-[10px] md:text-sm mb-3 md:mb-4">Scan QR code di bawah ini:</p>
                                 <div class="bg-white p-2 md:p-4 rounded-xl shadow-2xl shadow-[#C6A87C]/20 mb-4 md:mb-6">
-                                    <img :src="paymentResult ? paymentResult.qr_image_url : ''" alt="QRIS" class="w-48 h-48 md:w-64 md:h-64 object-contain mx-auto">
+                                    <img :src="paymentResult ? paymentResult.qr_image_url : ''" alt="QRIS" class="w-48 h-48 md:w-64 md:h-64 object-contain mx-auto" :class="paymentExpired ? 'opacity-20 grayscale' : ''">
                                 </div>
-                                <p class="text-[#C6A87C] text-[8px] md:text-xs uppercase tracking-widest animate-pulse">Menunggu Pembayaran...</p>
+                                <div class="mb-4 md:mb-6" x-show="!paymentExpired">
+                                    <p class="text-gray-500 text-[10px] md:text-xs uppercase tracking-[0.2em] mb-2">Sisa Waktu Pembayaran</p>
+                                    <p class="text-4xl md:text-6xl font-display text-[#C6A87C] tracking-widest countdown-glow" x-text="formattedTimeLeft"></p>
+                                </div>
+                                <p x-show="!paymentExpired" class="text-[#C6A87C] text-[8px] md:text-xs uppercase tracking-widest animate-pulse">Menunggu Pembayaran...</p>
+                                <div x-show="paymentExpired" class="text-red-500 font-bold uppercase tracking-widest text-xs">
+                                    ❌ Sesi Pembayaran Berakhir
+                                </div>
                             </div>
 
                             <div x-show="paymentResult && paymentResult.payment_type === 'bank_transfer'" class="flex flex-col items-center">
@@ -394,7 +428,35 @@
                                         <span class="text-xl md:text-3xl font-display text-white tracking-widest" x-text="paymentResult ? paymentResult.va_number : ''"></span>
                                     </div>
                                 </div>
-                                <p class="text-[#C6A87C] text-[8px] md:text-xs uppercase tracking-widest animate-pulse">Menunggu Pembayaran...</p>
+                                <div class="mb-4 md:mb-6" x-show="!paymentExpired">
+                                    <p class="text-gray-500 text-[10px] md:text-xs uppercase tracking-[0.2em] mb-2">Sisa Waktu Pembayaran</p>
+                                    <p class="text-4xl md:text-6xl font-display text-[#C6A87C] tracking-widest countdown-glow" x-text="formattedTimeLeft"></p>
+                                </div>
+                                <p x-show="!paymentExpired" class="text-[#C6A87C] text-[8px] md:text-xs uppercase tracking-widest animate-pulse">Menunggu Pembayaran...</p>
+                                <div x-show="paymentExpired" class="text-red-500 font-bold uppercase tracking-widest text-xs">
+                                    ❌ Sesi Pembayaran Berakhir
+                                </div>
+                            </div>
+
+                            <div x-show="paymentResult && paymentResult.payment_type === 'cash'" class="flex flex-col items-center">
+                                <div class="w-16 h-16 md:w-20 md:h-20 bg-[#C6A87C]/10 border border-[#C6A87C]/30 rounded-full flex items-center justify-center mb-4 md:mb-6">
+                                    <svg class="w-8 h-8 md:w-10 md:h-10 text-[#C6A87C]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                </div>
+                                <h4 class="text-lg md:text-2xl font-display text-white mb-2">Reservasi Berhasil!</h4>
+                                <p class="text-gray-400 text-xs md:text-sm mb-6 text-center max-w-sm">Reservasi Anda telah tercatat. Silakan lakukan pembayaran secara tunai saat Anda tiba di lokasi.</p>
+                                <div class="bg-[#111] border border-white/10 p-4 rounded-xl w-full max-w-sm text-left space-y-2">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-500 text-xs">Total Pembayaran</span>
+                                        <span class="text-[#C6A87C] font-bold text-sm" x-text="formatRupiah(paymentResult.amount)"></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-500 text-xs">Metode</span>
+                                        <span class="text-white text-sm">Cash di Tempat</span>
+                                    </div>
+                                </div>
+                                <p class="text-[#C6A87C] text-[8px] md:text-xs uppercase tracking-widest animate-pulse mt-6">Redirecting to Home...</p>
                             </div>
                         </div>
                     </div>
@@ -417,6 +479,38 @@
                     <p class="text-[#C6A87C] text-xs uppercase tracking-widest animate-pulse">Redirecting to Home...</p>
                 </div>
 
+            </div>
+        </div>
+
+        <!-- Custom Toast Notification -->
+        <div x-show="toastVisible" x-cloak
+            x-transition:enter="toast-enter"
+            x-transition:leave="toast-leave"
+            class="fixed top-6 left-1/2 -translate-x-1/2 z-[9999] w-[90%] max-w-md">
+            <div class="rounded-xl border px-5 py-4 shadow-2xl backdrop-blur-xl flex items-start gap-3"
+                :class="toastType === 'warning'
+                    ? 'bg-yellow-900/80 border-yellow-600/40 shadow-yellow-900/30'
+                    : 'bg-red-950/80 border-red-600/30 shadow-red-900/30'">
+                <!-- Icon -->
+                <div class="flex-shrink-0 mt-0.5">
+                    <svg x-show="toastType === 'error'" class="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                    </svg>
+                    <svg x-show="toastType === 'warning'" class="w-5 h-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                    </svg>
+                </div>
+                <!-- Message -->
+                <p class="text-sm font-medium leading-relaxed"
+                    :class="toastType === 'warning' ? 'text-yellow-100' : 'text-red-100'"
+                    x-text="toastMessage"></p>
+                <!-- Close Button -->
+                <button @click="toastVisible = false" class="flex-shrink-0 ml-auto -mr-1 -mt-1 p-1 rounded-lg transition-colors"
+                    :class="toastType === 'warning' ? 'hover:bg-yellow-800/50 text-yellow-400' : 'hover:bg-red-800/50 text-red-400'">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
             </div>
         </div>
 
@@ -448,11 +542,34 @@
                 customerPhone: '',
                 customerEmail: '',
                 notes: '',
+                timeLeft: 0,
+                countdownInterval: null,
+                paymentExpired: false,
+                toastVisible: false,
+                toastMessage: '',
+                toastType: 'error',
+                toastTimeout: null,
+
+                get formattedTimeLeft() {
+                    const minutes = Math.floor(this.timeLeft / 60);
+                    const seconds = this.timeLeft % 60;
+                    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                },
 
                 init() {
                     this.$watch('date', (value) => {
                         if (value) this.fetchSlots();
                     });
+                },
+
+                showToast(message, type = 'error') {
+                    this.toastMessage = message;
+                    this.toastType = type;
+                    this.toastVisible = true;
+                    if (this.toastTimeout) clearTimeout(this.toastTimeout);
+                    this.toastTimeout = setTimeout(() => {
+                        this.toastVisible = false;
+                    }, 4000);
                 },
 
                 get hasServicesForSelectedStore() {
@@ -570,21 +687,66 @@
                                 payment_method: this.paymentMethod
                             })
                         })
-                        .then(r => r.json())
+                        .then(r => {
+                            // Handle HTTP error responses
+                            if (r.status === 429) {
+                                throw new Error('RATE_LIMIT');
+                            }
+                            if (r.status === 409) {
+                                return r.json().then(d => { throw new Error(d.message || 'Slot tidak tersedia.'); });
+                            }
+                            if (!r.ok) {
+                                return r.json().then(d => { throw new Error(d.message || 'Terjadi kesalahan.'); });
+                            }
+                            return r.json();
+                        })
                         .then(data => {
                             this.isProcessingPayment = false;
                             if (data.status === 'success') {
                                 this.paymentResult = data;
-                                // START AUTO DETECT
-                                this.pollPaymentStatus(data.order_id);
+
+                                if (data.payment_type === 'cash') {
+                                    // Cash: langsung tampilkan info, lalu redirect
+                                    setTimeout(() => {
+                                        this.showSuccessAnimation = true;
+                                        setTimeout(() => {
+                                            window.location.href = "{{ route('home') }}";
+                                        }, 2000);
+                                    }, 3000);
+                                } else {
+                                    // Online payment: Start Countdown 10 Menit
+                                    this.startCountdown(10 * 60);
+                                    // START AUTO DETECT
+                                    this.pollPaymentStatus(data.order_id);
+                                }
                             } else {
-                                alert('Gagal: ' + data.message);
+                                this.showToast(data.message, 'error');
                             }
                         })
                         .catch(e => {
                             this.isProcessingPayment = false;
-                            alert('Error Sistem: ' + e);
+                            if (e.message === 'RATE_LIMIT') {
+                                this.showToast('Terlalu banyak percobaan. Silakan tunggu 1 menit sebelum mencoba lagi.', 'warning');
+                            } else {
+                                this.showToast(e.message, 'error');
+                            }
                         });
+                },
+
+                startCountdown(duration) {
+                    this.timeLeft = duration;
+                    this.paymentExpired = false;
+                    if (this.countdownInterval) clearInterval(this.countdownInterval);
+
+                    this.countdownInterval = setInterval(() => {
+                        if (this.timeLeft > 0) {
+                            this.timeLeft--;
+                        } else {
+                            this.paymentExpired = true;
+                            clearInterval(this.countdownInterval);
+                            clearInterval(this.paymentCheckInterval);
+                        }
+                    }, 1000);
                 },
 
                 // FUNGSI MATA-MATA (POLLING)
@@ -600,8 +762,9 @@
                                 if (res.status === 'paid') {
                                     console.log("PEMBAYARAN SUKSES TERDETEKSI!");
 
-                                    // STOP Checking
+                                    // STOP Checking & Countdown
                                     clearInterval(this.paymentCheckInterval);
+                                    if (this.countdownInterval) clearInterval(this.countdownInterval);
 
                                     // TRIGGER ANIMASI WOW
                                     this.showSuccessAnimation = true;
