@@ -11,7 +11,11 @@
 <body>
     <div class="email-container">
         <h2>Hi, {{ $reservation->customer_name }}! 👋</h2>
-        <p>Terima kasih telah melakukan pembayaran. Booking Anda di <strong>Tangwin Cut Studio</strong> telah terkonfirmasi.</p>
+        @if($reservation->payment_type == 'cash')
+            <p>Booking Anda di <strong>Tangwin Cut Studio</strong> telah terkonfirmasi. Silakan lakukan pembayaran langsung di tempat (Cash).</p>
+        @else
+            <p>Terima kasih telah melakukan pembayaran. Booking Anda di <strong>Tangwin Cut Studio</strong> telah terkonfirmasi.</p>
+        @endif
         
         <p><strong>Detail Booking:</strong></p>
         <ul>

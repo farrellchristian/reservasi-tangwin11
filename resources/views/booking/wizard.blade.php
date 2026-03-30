@@ -14,6 +14,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Italiana&family=Manrope:wght@200;300;400;500;600&display=swap" rel="stylesheet">
 
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Midtrans Snap.js -->
+    <script src="{{ config('midtrans.is_production') ? 'https://app.midtrans.com/snap/snap.js' : 'https://app.sandbox.midtrans.com/snap/snap.js' }}" data-client-key="{{ config('midtrans.client_key') }}"></script>
 
     <style>
         [x-cloak] {
@@ -296,10 +298,15 @@
                             <div x-show="isLoadingSlots" class="text-sm text-[#C6A87C] animate-pulse mb-2">Mencari jadwal tersedia...</div>
                             <div class="grid grid-cols-3 md:grid-cols-4 gap-3" x-show="date && !isLoadingSlots">
                                 <template x-for="slot in availableSlots" :key="slot.id_slot">
-                                    <button @click="timeSlot = slot.formatted_time" type="button"
-                                        class="py-3 text-sm border rounded transition-all duration-200"
-                                        :class="timeSlot === slot.formatted_time ? 'bg-[#C6A87C] text-black border-[#C6A87C] font-bold' : 'border-white/10 text-gray-400 hover:border-white hover:text-white'">
+                                    <button @click="if(!slot.is_past && !slot.is_full) timeSlot = slot.formatted_time" type="button"
+                                        class="py-3 text-sm border rounded transition-all duration-200 relative overflow-hidden"
+                                        :class="(slot.is_past || slot.is_full) ? 'border-white/5 text-gray-600 cursor-not-allowed bg-[#111] opacity-50' : (timeSlot === slot.formatted_time ? 'bg-[#C6A87C] text-black border-[#C6A87C] font-bold' : 'border-white/10 text-gray-400 hover:border-white hover:text-white')"
+                                        :disabled="slot.is_past || slot.is_full">
                                         <span x-text="slot.formatted_time"></span>
+                                        <!-- Diagonal cross-out line -->
+                                        <svg x-show="slot.is_past || slot.is_full" class="absolute inset-0 w-full h-full text-gray-600/40" preserveAspectRatio="none" viewBox="0 0 100 100">
+                                            <line x1="0" y1="100" x2="100" y2="0" stroke="currentColor" stroke-width="2" />
+                                        </svg>
                                     </button>
                                 </template>
                             </div>
@@ -391,7 +398,7 @@
                                     </svg>
                                 </div>
                                 <h4 class="text-sm md:text-lg font-bold text-white mb-0.5 md:mb-1">Bank Transfer</h4>
-                                <p class="text-[9px] md:text-xs text-gray-500">Virtual Account (BCA)</p>
+                                <p class="text-[9px] md:text-xs text-gray-500">Virtual Account (BNI)</p>
                             </div>
 
                             <div @click="paymentMethod = 'cash'" class="cursor-pointer group relative p-3 md:p-6 border rounded-xl transition-all duration-300 flex flex-col items-center text-center hover:bg-white/5" :class="paymentMethod === 'cash' ? 'border-[#C6A87C] bg-[#C6A87C]/5 ring-1 ring-[#C6A87C]' : 'border-white/10'">
@@ -406,37 +413,7 @@
                         </div>
 
                         <div class="p-4 md:p-8 text-center" x-show="paymentResult">
-                            <div x-show="paymentResult && paymentResult.payment_type === 'qris'" class="flex flex-col items-center">
-                                <p class="text-gray-400 text-[10px] md:text-sm mb-3 md:mb-4">Scan QR code di bawah ini:</p>
-                                <div class="bg-white p-2 md:p-4 rounded-xl shadow-2xl shadow-[#C6A87C]/20 mb-4 md:mb-6">
-                                    <img :src="paymentResult ? paymentResult.qr_image_url : ''" alt="QRIS" class="w-48 h-48 md:w-64 md:h-64 object-contain mx-auto" :class="paymentExpired ? 'opacity-20 grayscale' : ''">
-                                </div>
-                                <div class="mb-4 md:mb-6" x-show="!paymentExpired">
-                                    <p class="text-gray-500 text-[10px] md:text-xs uppercase tracking-[0.2em] mb-2">Sisa Waktu Pembayaran</p>
-                                    <p class="text-4xl md:text-6xl font-display text-[#C6A87C] tracking-widest countdown-glow" x-text="formattedTimeLeft"></p>
-                                </div>
-                                <p x-show="!paymentExpired" class="text-[#C6A87C] text-[8px] md:text-xs uppercase tracking-widest animate-pulse">Menunggu Pembayaran...</p>
-                                <div x-show="paymentExpired" class="text-red-500 font-bold uppercase tracking-widest text-xs">
-                                    ❌ Sesi Pembayaran Berakhir
-                                </div>
-                            </div>
-
-                            <div x-show="paymentResult && paymentResult.payment_type === 'bank_transfer'" class="flex flex-col items-center">
-                                <p class="text-gray-400 text-[10px] md:text-sm mb-4 md:mb-6">Transfer ke Virtual Account BCA:</p>
-                                <div class="bg-[#111] border border-white/10 p-4 md:p-6 rounded-xl w-full max-w-sm mb-4 md:mb-6 mx-auto">
-                                    <div class="flex items-center justify-center gap-2 md:gap-3">
-                                        <span class="text-xl md:text-3xl font-display text-white tracking-widest" x-text="paymentResult ? paymentResult.va_number : ''"></span>
-                                    </div>
-                                </div>
-                                <div class="mb-4 md:mb-6" x-show="!paymentExpired">
-                                    <p class="text-gray-500 text-[10px] md:text-xs uppercase tracking-[0.2em] mb-2">Sisa Waktu Pembayaran</p>
-                                    <p class="text-4xl md:text-6xl font-display text-[#C6A87C] tracking-widest countdown-glow" x-text="formattedTimeLeft"></p>
-                                </div>
-                                <p x-show="!paymentExpired" class="text-[#C6A87C] text-[8px] md:text-xs uppercase tracking-widest animate-pulse">Menunggu Pembayaran...</p>
-                                <div x-show="paymentExpired" class="text-red-500 font-bold uppercase tracking-widest text-xs">
-                                    ❌ Sesi Pembayaran Berakhir
-                                </div>
-                            </div>
+                            <!-- UI for QRIS and Bank Transfer has been removed because Midtrans Snap handles this directly via popup -->
 
                             <div x-show="paymentResult && paymentResult.payment_type === 'cash'" class="flex flex-col items-center">
                                 <div class="w-16 h-16 md:w-20 md:h-20 bg-[#C6A87C]/10 border border-[#C6A87C]/30 rounded-full flex items-center justify-center mb-4 md:mb-6">
@@ -703,9 +680,8 @@
                         .then(data => {
                             this.isProcessingPayment = false;
                             if (data.status === 'success') {
-                                this.paymentResult = data;
-
                                 if (data.payment_type === 'cash') {
+                                    this.paymentResult = data;
                                     // Cash: langsung tampilkan info, lalu redirect
                                     setTimeout(() => {
                                         this.showSuccessAnimation = true;
@@ -714,10 +690,29 @@
                                         }, 2000);
                                     }, 3000);
                                 } else {
-                                    // Online payment: Start Countdown 10 Menit
-                                    this.startCountdown(10 * 60);
-                                    // START AUTO DETECT
+                                    // Online payment: Buka pop-up Snap
+                                    this.showPaymentModal = false; // tutup modal utama
+                                    
+                                    // Start Auto-Detect Polling di Background (berjaga-jaga user bayar lewat hp, tp popup di web di close)
                                     this.pollPaymentStatus(data.order_id);
+
+                                    window.snap.pay(data.snap_token, {
+                                        onSuccess: (result) => {
+                                            this.showSuccessAnimation = true;
+                                            setTimeout(() => {
+                                                window.location.href = "{{ route('home') }}";
+                                            }, 2000);
+                                        },
+                                        onPending: (result) => {
+                                            this.showToast('Menunggu Anda menyelesaikan pembayaran...', 'info');
+                                        },
+                                        onError: (result) => {
+                                            this.showToast('Pembayaran Gagal.', 'error');
+                                        },
+                                        onClose: () => {
+                                            this.showToast('Anda menutup pop-up sebelum menyelesaikan pembayaran.', 'warning');
+                                        }
+                                    });
                                 }
                             } else {
                                 this.showToast(data.message, 'error');

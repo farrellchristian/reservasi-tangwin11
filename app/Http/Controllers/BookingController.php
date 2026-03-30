@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use Midtrans\Config;
 use Midtrans\CoreApi;
+use Midtrans\Snap;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Mail\PaymentSuccessMail;
 
@@ -42,37 +43,62 @@ class BookingController extends Controller
         $storeId = $request->store_id;
         $dayName = $this->getDayNameIndonesian($date);
 
+        // Ambil Unique Slots dari reservation_slots yang memiliki setidaknya satu Stylist ditugaskan
         $query = DB::table('reservation_slots')
-            ->join('reservation_slot_employee', 'reservation_slots.id_slot', '=', 'reservation_slot_employee.id_slot')
             ->where('reservation_slots.day_of_week', $dayName)
             ->where('reservation_slots.is_active', 1)
-            ->where('reservation_slots.id_store', $storeId) // Filter slot berdasarkan id_store
+            ->where('reservation_slots.id_store', $storeId)
+            ->whereExists(function ($q) use ($employeeId) {
+                $q->select(DB::raw(1))
+                    ->from('reservation_slot_employee')
+                    ->whereColumn('reservation_slot_employee.id_slot', 'reservation_slots.id_slot');
+                
+                if ($employeeId) {
+                    $q->where('reservation_slot_employee.id_employee', $employeeId);
+                }
+            })
             ->select('reservation_slots.id_slot', 'reservation_slots.slot_time', 'reservation_slots.quota');
-
-        if ($employeeId) {
-            $query->where('reservation_slot_employee.id_employee', $employeeId);
-        }
 
         $slots = $query->orderBy('slot_time', 'asc')->get();
         $availableSlots = [];
 
         foreach ($slots as $slot) {
+            // Tentukan Limit Quota
+            // Jika stylist spesifik dipilih: limit = 1 (1 stylist hanya bisa melayani 1 pelanggan per jam)
+            // Jika "Bebas/Siapa Saja": limit = quota (total kapasitas slot = jumlah stylist yang bertugas)
+            if ($employeeId) {
+                $limitQuota = 1;
+            } else {
+                $limitQuota = $slot->quota;
+            }
+
+            // Normalisasi format waktu (misal "09:00:00" atau "09:00" jadi "09:00")
+            $formattedSlotTime = date('H:i', strtotime($slot->slot_time));
+
             $bookedCount = DB::table('reservations')
                 ->where('booking_date', $date)
-                ->where('booking_time', $slot->slot_time)
+                ->where('booking_time', 'like', $formattedSlotTime . '%')
+                ->where('id_store', $storeId) // Filter berdasarkan store agar akurat
                 ->where('status', '!=', 'canceled')
                 ->where('status', '!=', 'expired')
                 ->where(function ($q) use ($employeeId) {
-                if ($employeeId) {
-                    $q->where('id_employee', $employeeId);
-                }
-            })
+                    if ($employeeId) {
+                        $q->where('id_employee', $employeeId);
+                    }
+                })
                 ->count();
 
-            if ($bookedCount < $slot->quota) {
-                $slot->formatted_time = date('H:i', strtotime($slot->slot_time));
-                $availableSlots[] = $slot;
+            // Tambahkan semua slot, tandai sebagai is_full jika kuota habis
+            $isPast = false;
+            $slotDateTime = Carbon::parse($date . ' ' . $slot->slot_time);
+            if ($slotDateTime->isPast()) {
+                $isPast = true;
             }
+
+            $slot->formatted_time = date('H:i', strtotime($slot->slot_time));
+            $slot->is_past = $isPast;
+            $slot->is_full = ($bookedCount >= $limitQuota);
+            $availableSlots[] = $slot;
         }
 
         return response()->json([
@@ -121,10 +147,20 @@ class BookingController extends Controller
             // === RACE CONDITION PROTECTION ===
             // Cek ulang ketersediaan slot di dalam transaksi dengan lock
             $dayName = $this->getDayNameIndonesian($request->date);
+            $formattedReqTime = date('H:i', strtotime($request->time));
+
+            $slotDateTime = Carbon::parse($request->date . ' ' . $request->time);
+            if ($slotDateTime->isPast()) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Waktu slot yang dipilih sudah berlalu. Silakan pilih waktu lain.'
+                ], 400);
+            }
 
             $slot = DB::table('reservation_slots')
                 ->where('day_of_week', $dayName)
-                ->where('slot_time', $request->time)
+                ->where('slot_time', 'like', $formattedReqTime . '%')
                 ->where('id_store', $request->store_id)
                 ->where('is_active', 1)
                 ->first();
@@ -138,21 +174,67 @@ class BookingController extends Controller
             }
 
             // Lock baris reservasi yang relevan agar proses lain menunggu
-            $bookedCount = DB::table('reservations')
+            // Filter by employee if specific capster is chosen
+            $bookedQuery = DB::table('reservations')
                 ->where('booking_date', $request->date)
-                ->where('booking_time', $request->time)
+                ->where('booking_time', 'like', $formattedReqTime . '%')
                 ->where('id_store', $request->store_id)
                 ->where('status', '!=', 'canceled')
                 ->where('status', '!=', 'expired')
-                ->lockForUpdate()
-                ->count();
+                ->lockForUpdate();
 
-            if ($bookedCount >= $slot->quota) {
-                DB::rollBack();
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Maaf, slot ini baru saja terisi oleh pelanggan lain. Silakan pilih waktu lain.'
-                ], 409);
+            if ($request->capster_id) {
+                $bookedCount = (clone $bookedQuery)->where('id_employee', $request->capster_id)->count();
+                // 1 stylist hanya bisa melayani 1 pelanggan per jam
+                if ($bookedCount >= 1) {
+                    DB::rollBack();
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Maaf, stylist yang dipilih baru saja terisi oleh pelanggan lain. Silakan pilih waktu atau stylist lain.'
+                    ], 409);
+                }
+                $assignedCapsterId = $request->capster_id;
+            } else {
+                // "Bebas / Siapa Saja" logic
+                // 1. Get all employees assigned to this slot
+                $assignedEmployees = DB::table('reservation_slot_employee')
+                    ->where('id_slot', $slot->id_slot)
+                    ->pluck('id_employee')
+                    ->toArray();
+
+                if (empty($assignedEmployees)) {
+                    DB::rollBack();
+                    return response()->json(['status' => 'error', 'message' => 'Tidak ada stylist yang bertugas pada jam ini.'], 409);
+                }
+
+                // 2. Count current bookings for each employee at this time
+                $bookingsPerEmployee = (clone $bookedQuery)
+                    ->select('id_employee', DB::raw('count(*) as total'))
+                    ->whereIn('id_employee', $assignedEmployees)
+                    ->groupBy('id_employee')
+                    ->get()
+                    ->keyBy('id_employee');
+
+                // 3. Find available employees
+                $availableEmployees = [];
+                foreach ($assignedEmployees as $empId) {
+                    $booked = isset($bookingsPerEmployee[$empId]) ? $bookingsPerEmployee[$empId]->total : 0;
+                    // 1 stylist hanya bisa melayani 1 pelanggan per jam
+                    if ($booked < 1) {
+                        $availableEmployees[] = $empId;
+                    }
+                }
+
+                if (empty($availableEmployees)) {
+                    DB::rollBack();
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Maaf, semua stylist pada jam ini baru saja penuh. Silakan pilih waktu lain.'
+                    ], 409);
+                }
+
+                // 4. Randomly pick one of the available employees
+                $assignedCapsterId = $availableEmployees[array_rand($availableEmployees)];
             }
             // === END RACE CONDITION PROTECTION ===
 
@@ -164,7 +246,7 @@ class BookingController extends Controller
             $reservation->booking_date = $request->date;
             $reservation->booking_time = $request->time;
             $reservation->id_service = $service->id_service;
-            $reservation->id_employee = $request->capster_id;
+            $reservation->id_employee = $assignedCapsterId; // Gunakan capster yang sudah ditugaskan
             $reservation->status = 'pending';
             $reservation->payment_type = $request->payment_method;
             $reservation->notes = $request->notes;
@@ -176,7 +258,7 @@ class BookingController extends Controller
             Config::$is3ds = config('midtrans.is_3ds');
 
             $orderId = 'BOOK-' . $reservation->id_reservation . '-' . time();
-            $grossAmount = (int)$service->price;
+            $grossAmount = (int) $service->price;
 
             $params = [
                 'payment_type' => '',
@@ -206,6 +288,19 @@ class BookingController extends Controller
 
             // === CASH: Skip Midtrans, langsung konfirmasi ===
             if ($request->payment_method == 'cash') {
+                $reservation->status = 'approved';
+                $reservation->save();
+
+                // Dispatch email konfirmasi langsung
+                if ($reservation->customer_email) {
+                    try {
+                        \App\Jobs\ProcessPaymentSuccessEmail::dispatch($reservation);
+                        Log::info("Cash booking approved & email job dispatched for: " . $reservation->customer_email);
+                    } catch (\Exception $e) {
+                        Log::error("Gagal dispatch email untuk Cash booking: " . $e->getMessage());
+                    }
+                }
+
                 DB::commit();
 
                 return response()->json([
@@ -217,41 +312,29 @@ class BookingController extends Controller
                 ]);
             }
 
-            // === ONLINE PAYMENT: Proses via Midtrans ===
+            // === ONLINE PAYMENT: Proses via Midtrans Snap ===
+            unset($params['payment_type']); // Snap API does not strictly require payment_type at the root for general open
+            
             if ($request->payment_method == 'qris') {
-                $params['payment_type'] = 'qris';
-                $params['qris'] = ['acquirer' => 'gopay'];
-            }
-            elseif ($request->payment_method == 'bank_transfer') {
-                $params['payment_type'] = 'bank_transfer';
-                $params['bank_transfer'] = ['bank' => 'bca'];
+                $params['enabled_payments'] = ['gopay', 'other_qris', 'shopeepay'];
+            } elseif ($request->payment_method == 'bank_transfer') {
+                $params['enabled_payments'] = ['bca_va', 'bni_va', 'bri_va', 'mandiri_va', 'permata_va', 'cimb_va'];
             }
 
-            $response = CoreApi::charge($params);
+            // Dapatkan token SNAP
+            $snapToken = Snap::getSnapToken($params);
 
             DB::commit();
 
-            $resultData = [
+            return response()->json([
                 'status' => 'success',
                 'order_id' => $orderId,
                 'payment_type' => $request->payment_method,
                 'reservation_id' => $reservation->id_reservation,
                 'amount' => $grossAmount,
-            ];
-
-            if ($request->payment_method == 'qris') {
-                $resultData['qr_image_url'] = $response->actions[0]->url ?? null;
-                $resultData['expiration_time'] = $response->expiry_time ?? null;
-            }
-            elseif ($request->payment_method == 'bank_transfer') {
-                $resultData['va_number'] = $response->va_numbers[0]->va_number ?? null;
-                $resultData['bank'] = 'BCA';
-                $resultData['expiration_time'] = $response->expiry_time ?? null;
-            }
-
-            return response()->json($resultData);
-        }
-        catch (\Exception $e) {
+                'snap_token' => $snapToken,
+            ]);
+        } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
@@ -276,19 +359,15 @@ class BookingController extends Controller
 
             if ($transactionStatus == 'capture') {
                 if ($fraudStatus == 'challenge') {
-                // Challenge
-                }
-                else {
+                    // Challenge
+                } else {
                     $isPaid = true;
                 }
-            }
-            else if ($transactionStatus == 'settlement') {
+            } else if ($transactionStatus == 'settlement') {
                 $isPaid = true;
-            }
-            else if ($transactionStatus == 'pending') {
+            } else if ($transactionStatus == 'pending') {
                 $isPaid = false;
-            }
-            else if ($transactionStatus == 'deny' || $transactionStatus == 'expire' || $transactionStatus == 'cancel') {
+            } else if ($transactionStatus == 'deny' || $transactionStatus == 'expire' || $transactionStatus == 'cancel') {
                 return response()->json(['status' => 'failed']);
             }
 
@@ -309,20 +388,18 @@ class BookingController extends Controller
                             // Dispatch pekerjaan kirim email ke Queue
                             \App\Jobs\ProcessPaymentSuccessEmail::dispatch($reservation);
                             Log::info("Job email invoice di-dispatch untuk: " . $reservation->customer_email);
-                        }
-                        catch (\Exception $e) {
+                        } catch (\Exception $e) {
                             Log::error("Gagal men-dispatch job email invoice: " . $e->getMessage());
                         }
                     }
-                // --- SELESAI PROSES EMAIL ---
+                    // --- SELESAI PROSES EMAIL ---
                 }
 
                 return response()->json(['status' => 'paid']);
             }
 
             return response()->json(['status' => 'pending']);
-        }
-        catch (\Exception $e) {
+        } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()]);
         }
     }
@@ -401,28 +478,24 @@ class BookingController extends Controller
                         try {
                             \App\Jobs\ProcessPaymentSuccessEmail::dispatch($reservation);
                             Log::info('Midtrans Webhook: Job email invoice di-dispatch untuk ' . $reservation->customer_email);
-                        }
-                        catch (\Exception $e) {
+                        } catch (\Exception $e) {
                             Log::error('Midtrans Webhook: Gagal dispatch email: ' . $e->getMessage());
                         }
                     }
                 }
-            }
-            elseif ($transactionStatus == 'cancel' || $transactionStatus == 'deny' || $transactionStatus == 'expire') {
+            } elseif ($transactionStatus == 'cancel' || $transactionStatus == 'deny' || $transactionStatus == 'expire') {
                 // Pembayaran GAGAL/EXPIRED
                 if ($reservation->status === 'pending') {
                     $reservation->status = 'expired';
                     $reservation->save();
                     Log::info('Midtrans Webhook: Reservasi #' . $reservationId . ' diubah ke expired');
                 }
-            }
-            elseif ($transactionStatus == 'pending') {
+            } elseif ($transactionStatus == 'pending') {
                 Log::info('Midtrans Webhook: Pembayaran masih pending untuk order ' . $orderId);
             }
 
             return response()->json(['message' => 'Notification processed']);
-        }
-        catch (\Exception $e) {
+        } catch (\Exception $e) {
             Log::error('Midtrans Webhook Error: ' . $e->getMessage());
             return response()->json(['message' => 'Internal error'], 500);
         }

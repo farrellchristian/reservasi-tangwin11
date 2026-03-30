@@ -219,7 +219,13 @@
         <div class="invoice-header">
             <div class="invoice-title-box">
                 <div class="big-label">INVOICE</div>
-                <div>Status: <span class="badge">LUNAS / PAID</span></div>
+                <div>Status: 
+                    @if($reservation->payment_type == 'cash')
+                        <span class="badge" style="background: #e67e22;">UNPAID - CASH AT STORE</span>
+                    @else
+                        <span class="badge">LUNAS / PAID</span>
+                    @endif
+                </div>
             </div>
             <div class="invoice-meta-box">
                 <div><strong>Invoice #:</strong> INV-{{ str_pad($reservation->id_reservation, 5, '0', STR_PAD_LEFT) }}</div>
