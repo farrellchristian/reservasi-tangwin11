@@ -81,6 +81,7 @@ class BookingController extends Controller
                 ->where('id_store', $storeId) // Filter berdasarkan store agar akurat
                 ->where('status', '!=', 'canceled')
                 ->where('status', '!=', 'expired')
+                ->where('status', '!=', 'refunded')
                 ->where(function ($q) use ($employeeId) {
                     if ($employeeId) {
                         $q->where('id_employee', $employeeId);
@@ -181,6 +182,7 @@ class BookingController extends Controller
                 ->where('id_store', $request->store_id)
                 ->where('status', '!=', 'canceled')
                 ->where('status', '!=', 'expired')
+                ->where('status', '!=', 'refunded')
                 ->lockForUpdate();
 
             if ($request->capster_id) {
