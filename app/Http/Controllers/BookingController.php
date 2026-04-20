@@ -52,7 +52,7 @@ class BookingController extends Controller
                 $q->select(DB::raw(1))
                     ->from('reservation_slot_employee')
                     ->whereColumn('reservation_slot_employee.id_slot', 'reservation_slots.id_slot');
-                
+
                 if ($employeeId) {
                     $q->where('reservation_slot_employee.id_employee', $employeeId);
                 }
@@ -145,114 +145,142 @@ class BookingController extends Controller
         try {
             DB::beginTransaction();
 
-            // === RACE CONDITION PROTECTION ===
-            // Cek ulang ketersediaan slot di dalam transaksi dengan lock
-            $dayName = $this->getDayNameIndonesian($request->date);
             $formattedReqTime = date('H:i', strtotime($request->time));
 
-            $slotDateTime = Carbon::parse($request->date . ' ' . $request->time);
-            if ($slotDateTime->isPast()) {
-                DB::rollBack();
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Waktu slot yang dipilih sudah berlalu. Silakan pilih waktu lain.'
-                ], 400);
-            }
-
-            $slot = DB::table('reservation_slots')
-                ->where('day_of_week', $dayName)
-                ->where('slot_time', 'like', $formattedReqTime . '%')
-                ->where('id_store', $request->store_id)
-                ->where('is_active', 1)
-                ->first();
-
-            if (!$slot) {
-                DB::rollBack();
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Slot waktu yang dipilih tidak tersedia.'
-                ], 409);
-            }
-
-            // Lock baris reservasi yang relevan agar proses lain menunggu
-            // Filter by employee if specific capster is chosen
-            $bookedQuery = DB::table('reservations')
+            // === PENDING RECYCLE LOGIC ===
+            // Cek apakah sudah ada reservasi PENDING untuk slot & user ini (agar bisa lanjut bayar)
+            $reservation = Reservation::where('id_store', $request->store_id)
                 ->where('booking_date', $request->date)
                 ->where('booking_time', 'like', $formattedReqTime . '%')
-                ->where('id_store', $request->store_id)
-                ->where('status', '!=', 'canceled')
-                ->where('status', '!=', 'expired')
-                ->where('status', '!=', 'refunded')
-                ->lockForUpdate();
+                ->where('customer_phone', $request->customer_phone)
+                ->where('status', 'pending')
+                ->first();
 
-            if ($request->capster_id) {
-                $bookedCount = (clone $bookedQuery)->where('id_employee', $request->capster_id)->count();
-                // 1 stylist hanya bisa melayani 1 pelanggan per jam
-                if ($bookedCount >= 1) {
-                    DB::rollBack();
-                    return response()->json([
-                        'status' => 'error',
-                        'message' => 'Maaf, stylist yang dipilih baru saja terisi oleh pelanggan lain. Silakan pilih waktu atau stylist lain.'
-                    ], 409);
+            if ($reservation) {
+                // Update data jika ada perubahan di form konfirmasi
+                $reservation->customer_name = $request->customer_name;
+                $reservation->customer_email = $request->customer_email;
+                $reservation->notes = $request->notes;
+                $reservation->payment_type = $request->payment_method;
+
+                // Jika user secara manual memilih stylist baru di form (lewat tombol Back), 
+                // maka kita update stylist-nya (logika ketersediaan stylist diabaikan karena ini dianggap koreksi data)
+                if ($request->capster_id) {
+                    $reservation->id_employee = $request->capster_id;
                 }
-                $assignedCapsterId = $request->capster_id;
+
+                $reservation->save();
+                $assignedCapsterId = $reservation->id_employee;
+
+                Log::info("Resuming pending reservation ID: " . $reservation->id_reservation . " for customer: " . $request->customer_phone);
             } else {
-                // "Bebas / Siapa Saja" logic
-                // 1. Get all employees assigned to this slot
-                $assignedEmployees = DB::table('reservation_slot_employee')
-                    ->where('id_slot', $slot->id_slot)
-                    ->pluck('id_employee')
-                    ->toArray();
+                // === PROSES NORMAL: RACE CONDITION PROTECTION ===
+                // Cek ulang ketersediaan slot di dalam transaksi dengan lock
+                $dayName = $this->getDayNameIndonesian($request->date);
 
-                if (empty($assignedEmployees)) {
-                    DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => 'Tidak ada stylist yang bertugas pada jam ini.'], 409);
-                }
-
-                // 2. Count current bookings for each employee at this time
-                $bookingsPerEmployee = (clone $bookedQuery)
-                    ->select('id_employee', DB::raw('count(*) as total'))
-                    ->whereIn('id_employee', $assignedEmployees)
-                    ->groupBy('id_employee')
-                    ->get()
-                    ->keyBy('id_employee');
-
-                // 3. Find available employees
-                $availableEmployees = [];
-                foreach ($assignedEmployees as $empId) {
-                    $booked = isset($bookingsPerEmployee[$empId]) ? $bookingsPerEmployee[$empId]->total : 0;
-                    // 1 stylist hanya bisa melayani 1 pelanggan per jam
-                    if ($booked < 1) {
-                        $availableEmployees[] = $empId;
-                    }
-                }
-
-                if (empty($availableEmployees)) {
+                $slotDateTime = Carbon::parse($request->date . ' ' . $request->time);
+                if ($slotDateTime->isPast()) {
                     DB::rollBack();
                     return response()->json([
                         'status' => 'error',
-                        'message' => 'Maaf, semua stylist pada jam ini baru saja penuh. Silakan pilih waktu lain.'
+                        'message' => 'Waktu slot yang dipilih sudah berlalu. Silakan pilih waktu lain.'
+                    ], 400);
+                }
+
+                $slot = DB::table('reservation_slots')
+                    ->where('day_of_week', $dayName)
+                    ->where('slot_time', 'like', $formattedReqTime . '%')
+                    ->where('id_store', $request->store_id)
+                    ->where('is_active', 1)
+                    ->first();
+
+                if (!$slot) {
+                    DB::rollBack();
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Slot waktu yang dipilih tidak tersedia.'
                     ], 409);
                 }
 
-                // 4. Randomly pick one of the available employees
-                $assignedCapsterId = $availableEmployees[array_rand($availableEmployees)];
-            }
-            // === END RACE CONDITION PROTECTION ===
+                // Lock baris reservasi yang relevan agar proses lain menunggu
+                // Filter by employee if specific capster is chosen
+                $bookedQuery = DB::table('reservations')
+                    ->where('booking_date', $request->date)
+                    ->where('booking_time', 'like', $formattedReqTime . '%')
+                    ->where('id_store', $request->store_id)
+                    ->where('status', '!=', 'canceled')
+                    ->where('status', '!=', 'expired')
+                    ->where('status', '!=', 'refunded')
+                    ->lockForUpdate();
 
-            $reservation = new Reservation();
-            $reservation->id_store = $request->store_id;
-            $reservation->customer_name = $request->customer_name;
-            $reservation->customer_phone = $request->customer_phone;
-            $reservation->customer_email = $request->customer_email;
-            $reservation->booking_date = $request->date;
-            $reservation->booking_time = $request->time;
-            $reservation->id_service = $service->id_service;
-            $reservation->id_employee = $assignedCapsterId; // Gunakan capster yang sudah ditugaskan
-            $reservation->status = 'pending';
-            $reservation->payment_type = $request->payment_method;
-            $reservation->notes = $request->notes;
-            $reservation->save();
+                if ($request->capster_id) {
+                    $bookedCount = (clone $bookedQuery)->where('id_employee', $request->capster_id)->count();
+                    // 1 stylist hanya bisa melayani 1 pelanggan per jam
+                    if ($bookedCount >= 1) {
+                        DB::rollBack();
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => 'Maaf, stylist yang dipilih baru saja terisi oleh pelanggan lain. Silakan pilih waktu atau stylist lain.'
+                        ], 409);
+                    }
+                    $assignedCapsterId = $request->capster_id;
+                } else {
+                    // "Bebas / Siapa Saja" logic
+                    // 1. Get all employees assigned to this slot
+                    $assignedEmployees = DB::table('reservation_slot_employee')
+                        ->where('id_slot', $slot->id_slot)
+                        ->pluck('id_employee')
+                        ->toArray();
+
+                    if (empty($assignedEmployees)) {
+                        DB::rollBack();
+                        return response()->json(['status' => 'error', 'message' => 'Tidak ada stylist yang bertugas pada jam ini.'], 409);
+                    }
+
+                    // 2. Count current bookings for each employee at this time
+                    $bookingsPerEmployee = (clone $bookedQuery)
+                        ->select('id_employee', DB::raw('count(*) as total'))
+                        ->whereIn('id_employee', $assignedEmployees)
+                        ->groupBy('id_employee')
+                        ->get()
+                        ->keyBy('id_employee');
+
+                    // 3. Find available employees
+                    $availableEmployees = [];
+                    foreach ($assignedEmployees as $empId) {
+                        $booked = isset($bookingsPerEmployee[$empId]) ? $bookingsPerEmployee[$empId]->total : 0;
+                        // 1 stylist hanya bisa melayani 1 pelanggan per jam
+                        if ($booked < 1) {
+                            $availableEmployees[] = $empId;
+                        }
+                    }
+
+                    if (empty($availableEmployees)) {
+                        DB::rollBack();
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => 'Maaf, semua stylist pada jam ini baru saja penuh. Silakan pilih waktu lain.'
+                        ], 409);
+                    }
+
+                    // 4. Randomly pick one of the available employees
+                    $assignedCapsterId = $availableEmployees[array_rand($availableEmployees)];
+                }
+
+                $reservation = new Reservation();
+                $reservation->id_store = $request->store_id;
+                $reservation->customer_name = $request->customer_name;
+                $reservation->customer_phone = $request->customer_phone;
+                $reservation->customer_email = $request->customer_email;
+                $reservation->booking_date = $request->date;
+                $reservation->booking_time = $request->time;
+                $reservation->id_service = $service->id_service;
+                $reservation->id_employee = $assignedCapsterId;
+                $reservation->status = 'pending';
+                $reservation->payment_type = $request->payment_method;
+                $reservation->notes = $request->notes;
+                $reservation->save();
+            }
 
             Config::$serverKey = config('midtrans.server_key');
             Config::$isProduction = config('midtrans.is_production');
@@ -316,7 +344,7 @@ class BookingController extends Controller
 
             // === ONLINE PAYMENT: Proses via Midtrans Snap ===
             unset($params['payment_type']); // Snap API does not strictly require payment_type at the root for general open
-            
+
             if ($request->payment_method == 'qris') {
                 $params['enabled_payments'] = ['gopay', 'other_qris', 'shopeepay'];
             } elseif ($request->payment_method == 'bank_transfer') {
