@@ -9,10 +9,17 @@ class Employee extends Model
     protected $table = 'employees';
     protected $primaryKey = 'id_employee';
     protected $guarded = [];
-    
-    // Fungsi bantuan untuk mengambil hanya pegawai yang jabatannya 'Capster' dan Aktif
+
+    // Fungsi bantuan untuk mengambil hanya pegawai yang jabatannya 'Capster' dan masih aktif.
     public function scopeActiveCapster($query)
     {
-        return $query->where('position', 'Capster')->where('is_active', 1);
+        return $query->where('position', 'Capster')
+            ->where('is_active', 1);
+    }
+
+    // Hanya mengambil pegawai yang diizinkan tampil di web reservasi (booking).
+    public function scopeShowOnReservation($query)
+    {
+        return $query->where('show_on_reservation', 1);
     }
 }

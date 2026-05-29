@@ -4,12 +4,14 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Reservation;
-use App\Models\Refund;
+use App\Models\Service;
+use App\Models\Store;
+use App\Models\Employee;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
-use App\Mail\RefundRequestedMail;
+use App\Mail\RescheduledMail;
 
 class CheckBookingController extends Controller
 {
@@ -68,63 +70,187 @@ class CheckBookingController extends Controller
         return view('booking.detail', compact('reservation'));
     }
 
-    // Memproses pembatalan dan refund
-    public function cancel(Request $request)
+    // Tampilkan halaman reschedule
+    public function reschedule(Request $request)
     {
         $request->validate([
             'id_reservation' => 'required|exists:reservations,id_reservation',
-            'bank_name' => 'required|string',
-            'account_number' => 'required|string',
-            'account_name' => 'required|string',
-            'cancel_reason' => 'required|string',
         ]);
 
-        $reservation = Reservation::where('id_reservation', $request->id_reservation)->first();
+        $reservation = Reservation::with(['service', 'employee', 'store'])
+            ->where('id_reservation', $request->id_reservation)
+            ->first();
 
-        // Validasi Status dan Waktu
-        if ($reservation->status !== 'approved') {
-            return back()->with('error', 'Reservasi ini tidak dapat dibatalkan karena statusnya belum lunas/approved.');
+        if (!$reservation || $reservation->status !== 'approved') {
+            return redirect()->route('booking.check.form')
+                ->with('error', 'Reservasi tidak ditemukan atau tidak dalam status yang dapat di-reschedule.');
         }
 
-        $bookingDate = Carbon::parse($reservation->booking_date);
-        $today = Carbon::today();
+        return view('booking.reschedule', compact('reservation'));
+    }
 
-        if ($today->diffInDays($bookingDate, false) <= 0) {
-            return back()->with('error', 'Pembatalan maksimal dilakukan H-1 (Satu hari sebelum jadwal).');
+    // Proses reschedule: cancel booking lama, buat booking baru
+    public function processReschedule(Request $request)
+    {
+        $request->validate([
+            'id_reservation' => 'required|exists:reservations,id_reservation',
+            'new_date'       => 'required|date|after_or_equal:today',
+            'new_time'       => 'required|date_format:H:i',
+        ], [
+            'new_date.required'          => 'Tanggal baru wajib dipilih.',
+            'new_date.after_or_equal'    => 'Tanggal tidak boleh di masa lalu.',
+            'new_time.required'          => 'Waktu baru wajib dipilih.',
+        ]);
+
+        $oldReservation = Reservation::with(['service', 'employee', 'store'])
+            ->where('id_reservation', $request->id_reservation)
+            ->first();
+
+        if (!$oldReservation || $oldReservation->status !== 'approved') {
+            return back()->with('error', 'Reservasi tidak dapat di-reschedule. Pastikan statusnya sudah lunas/approved.');
         }
+
+        $newDate    = $request->new_date;
+        $newTime    = $request->new_time;
+        $storeId    = $oldReservation->id_store;
+        $employeeId = $oldReservation->id_employee;
+        $serviceId  = $oldReservation->id_service;
 
         try {
             DB::beginTransaction();
 
-            // 1. Ubah status reservasi
-            $reservation->status = 'refund_requested';
-            $reservation->save();
+            // 1. Dapatkan nama hari dari tanggal baru
+            $dayMap = [
+                'Sunday'    => 'Minggu', 'Monday'  => 'Senin', 'Tuesday'  => 'Selasa',
+                'Wednesday' => 'Rabu',   'Thursday' => 'Kamis', 'Friday'   => 'Jumat',
+                'Saturday'  => 'Sabtu',
+            ];
+            $dayName = $dayMap[date('l', strtotime($newDate))] ?? 'Senin';
+            $formattedTime = date('H:i', strtotime($newTime));
 
-            // 2. Simpan Data Refund
-            $refund = Refund::create([
-                'id_reservation' => $reservation->id_reservation,
-                'bank_name' => $request->bank_name,
-                'account_number' => $request->account_number,
-                'account_name' => $request->account_name,
-                'cancel_reason' => $request->cancel_reason,
-                'amount' => $reservation->service->price ?? 0,
-                'status' => 'pending'
-            ]);
+            // 2. Validasi slot tidak di masa lalu
+            $slotDateTime = Carbon::parse($newDate . ' ' . $newTime);
+            if ($slotDateTime->isPast()) {
+                DB::rollBack();
+                return back()->with('error', 'Waktu yang dipilih sudah berlalu. Silakan pilih waktu lain.');
+            }
+
+            // 3. Pastikan slot aktif tersedia di toko ini
+            $slot = DB::table('reservation_slots')
+                ->where('day_of_week', $dayName)
+                ->where('slot_time', 'like', $formattedTime . '%')
+                ->where('id_store', $storeId)
+                ->where('is_active', 1)
+                ->first();
+
+            if (!$slot) {
+                DB::rollBack();
+                return back()->with('error', 'Slot waktu yang dipilih tidak tersedia. Silakan pilih waktu lain.');
+            }
+
+            // 4. Cek ketersediaan slot (dengan lock untuk menghindari race condition)
+            $bookedQuery = DB::table('reservations')
+                ->where('booking_date', $newDate)
+                ->where('booking_time', 'like', $formattedTime . '%')
+                ->where('id_store', $storeId)
+                ->where('status', '!=', 'canceled')
+                ->where('status', '!=', 'expired')
+                ->where('status', '!=', 'refunded')
+                ->lockForUpdate();
+
+            if ($employeeId) {
+                // Pastikan stylist masih aktif dan show_on_reservation = 1
+                $stylistExists = Employee::where('id_employee', $employeeId)
+                    ->where('is_active', 1)
+                    ->where('show_on_reservation', 1)
+                    ->exists();
+                if (!$stylistExists) {
+                    DB::rollBack();
+                    return back()->with('error', 'Maaf, stylist Anda tidak tersedia untuk reservasi online saat ini. Silakan hubungi admin atau pilih stylist lain.');
+                }
+
+                // Stylist spesifik: limit 1 per slot
+                $bookedCount = (clone $bookedQuery)->where('id_employee', $employeeId)->count();
+                if ($bookedCount >= 1) {
+                    DB::rollBack();
+                    return back()->with('error', 'Maaf, stylist Anda tidak tersedia di waktu tersebut. Silakan pilih waktu lain.');
+                }
+                $assignedEmployeeId = $employeeId;
+            } else {
+                // Siapa saja: cari stylist yang masih available (harus aktif dan show_on_reservation)
+                $assignedEmployees = DB::table('reservation_slot_employee')
+                    ->join('employees', 'employees.id_employee', '=', 'reservation_slot_employee.id_employee')
+                    ->where('reservation_slot_employee.id_slot', $slot->id_slot)
+                    ->where('employees.is_active', 1)
+                    ->where('employees.show_on_reservation', 1)
+                    ->pluck('reservation_slot_employee.id_employee')
+                    ->toArray();
+
+                if (empty($assignedEmployees)) {
+                    DB::rollBack();
+                    return back()->with('error', 'Tidak ada stylist yang bertugas pada jam tersebut.');
+                }
+
+                $bookingsPerEmployee = (clone $bookedQuery)
+                    ->select('id_employee', DB::raw('count(*) as total'))
+                    ->whereIn('id_employee', $assignedEmployees)
+                    ->groupBy('id_employee')
+                    ->get()
+                    ->keyBy('id_employee');
+
+                $available = [];
+                foreach ($assignedEmployees as $empId) {
+                    $booked = isset($bookingsPerEmployee[$empId]) ? $bookingsPerEmployee[$empId]->total : 0;
+                    if ($booked < 1) $available[] = $empId;
+                }
+
+                if (empty($available)) {
+                    DB::rollBack();
+                    return back()->with('error', 'Semua stylist sudah penuh di waktu tersebut. Silakan pilih waktu lain.');
+                }
+
+                $assignedEmployeeId = $available[array_rand($available)];
+            }
+
+            // 5. Cancel booking lama
+            $oldReservation->status = 'canceled';
+            $oldReservation->save();
+
+            // 6. Buat booking baru (inherit data lama, ganti date/time/employee)
+            $newReservation = new Reservation();
+            $newReservation->id_store        = $storeId;
+            $newReservation->id_service      = $serviceId;
+            $newReservation->id_employee     = $assignedEmployeeId;
+            $newReservation->customer_name   = $oldReservation->customer_name;
+            $newReservation->customer_phone  = $oldReservation->customer_phone;
+            $newReservation->customer_email  = $oldReservation->customer_email;
+            $newReservation->booking_date    = $newDate;
+            $newReservation->booking_time    = $newTime;
+            $newReservation->payment_type    = $oldReservation->payment_type;
+            $newReservation->notes           = $oldReservation->notes;
+            $newReservation->status          = 'approved'; // langsung approved, tidak perlu bayar ulang
+            $newReservation->save();
 
             DB::commit();
 
-            // 3. Kirim Email Notifikasi (Background / Queue jika worker jalan)
-            if ($reservation->customer_email) {
+            // 7. Kirim email notifikasi reschedule
+            if ($newReservation->customer_email) {
                 try {
-                    Mail::to($reservation->customer_email)->send(new RefundRequestedMail($reservation, $refund));
+                    $newReservation->load(['service', 'employee', 'store']);
+                    Mail::to($newReservation->customer_email)
+                        ->queue(new RescheduledMail($oldReservation, $newReservation));
+                    Log::info("Email reschedule di-queue untuk: " . $newReservation->customer_email);
                 } catch (\Exception $e) {
-                    Log::error("Gagal mengirim email refund_requested ke " . $reservation->customer_email . ": " . $e->getMessage());
+                    Log::error("Gagal queue email reschedule: " . $e->getMessage());
                 }
             }
 
-            return back()->with('success', 'Permintaan pembatalan dan pengajuan refund telah berhasil dikirim. Admin kami akan segera memproses dana Anda.');
+            return redirect()->route('booking.check.form')
+                ->with('success', 'Jadwal berhasil diubah! Booking baru #' . str_pad($newReservation->id_reservation, 5, '0', STR_PAD_LEFT) . ' telah dikonfirmasi. Silakan cek email Anda.');
+
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error("Reschedule error: " . $e->getMessage());
             return back()->with('error', 'Terjadi kesalahan sistem: ' . $e->getMessage());
         }
     }

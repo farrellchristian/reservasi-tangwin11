@@ -10,7 +10,7 @@
     <div style="max-w: 600px; margin: 0 auto; background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
 
         <div style="text-align: center; margin-bottom: 30px;">
-            <img src="{{ asset('images/logo_tangwin_black.png') }}" alt="Tangwin Cut" style="height: 60px;">
+            <img src="{{ asset('images/logo_struk.png') }}" alt="Tangwin Cut" style="max-height: 80px; width: auto;">
         </div>
 
         <h2 style="color: #111827; margin-bottom: 20px;">Permintaan Pembatalan & Refund Diterima</h2>

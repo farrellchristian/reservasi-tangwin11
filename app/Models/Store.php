@@ -15,4 +15,9 @@ class Store extends Model
     {
         return $query->where('is_active', 1);
     }
+
+    public function services()
+    {
+        return $this->hasMany(Service::class, 'id_store', 'id_store');
+    }
 }

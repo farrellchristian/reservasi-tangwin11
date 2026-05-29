@@ -13,6 +13,8 @@ Route::get('/booking', [BookingController::class, 'showBookingForm'])->name('boo
 Route::get('/cek-pesanan', [App\Http\Controllers\CheckBookingController::class, 'index'])->name('booking.check.form');
 Route::post('/cek-pesanan', [App\Http\Controllers\CheckBookingController::class, 'search'])->name('booking.check.process');
 Route::post('/cek-pesanan/cancel', [App\Http\Controllers\CheckBookingController::class, 'cancel'])->name('booking.check.cancel');
+Route::get('/cek-pesanan/reschedule', [App\Http\Controllers\CheckBookingController::class, 'reschedule'])->name('booking.reschedule');
+Route::post('/cek-pesanan/reschedule', [App\Http\Controllers\CheckBookingController::class, 'processReschedule'])->name('booking.reschedule.process');
 
 // Route : Untuk mengambil data slot (Ajax)
 Route::get('/booking/slots', [BookingController::class, 'getAvailableSlots'])->name('booking.slots');

@@ -21,11 +21,16 @@ class BookingController extends Controller
 {
     public function showBookingForm()
     {
-        // Ambil semua Toko/Cabang yang aktif
-        $stores = Store::where('is_active', 1)->get();
-        // Ambil data layanan & kapster untuk difilter via frontend
-        $services = Service::all();
-        $capsters = Employee::activeCapster()->get();
+        // Ambil Toko/Cabang yang aktif DAN diizinkan tampil di web reservasi
+        $stores = Store::where('is_active', 1)
+            ->where('show_on_reservation', 1)
+            ->get();
+
+        // Ambil layanan yang diizinkan tampil di web reservasi
+        $services = Service::where('show_on_reservation', 1)->get();
+
+        // Ambil capster yang aktif DAN diizinkan tampil di web reservasi (via scope)
+        $capsters = Employee::activeCapster()->showOnReservation()->get();
 
         return view('booking.wizard', compact('stores', 'services', 'capsters'));
     }
@@ -51,7 +56,10 @@ class BookingController extends Controller
             ->whereExists(function ($q) use ($employeeId) {
                 $q->select(DB::raw(1))
                     ->from('reservation_slot_employee')
-                    ->whereColumn('reservation_slot_employee.id_slot', 'reservation_slots.id_slot');
+                    ->join('employees', 'employees.id_employee', '=', 'reservation_slot_employee.id_employee')
+                    ->whereColumn('reservation_slot_employee.id_slot', 'reservation_slots.id_slot')
+                    ->where('employees.is_active', 1)
+                    ->where('employees.show_on_reservation', 1);
 
                 if ($employeeId) {
                     $q->where('reservation_slot_employee.id_employee', $employeeId);
@@ -122,19 +130,22 @@ class BookingController extends Controller
             'payment_method' => 'required|in:qris,bank_transfer,cash',
         ]);
 
-        // Verifikasi bahwa Service benar-benar dari Store yang dipilih
+        // Verifikasi bahwa Service benar-benar dari Store yang dipilih dan diizinkan tampil
         $service = Service::where('id_service', $request->service_id)
             ->where('id_store', $request->store_id)
+            ->where('show_on_reservation', 1)
             ->first();
 
         if (!$service) {
             return response()->json(['status' => 'error', 'message' => 'Layanan yang dipilih tidak tersedia di cabang ini.'], 400);
         }
 
-        // Verifikasi Capster jika dipilih
+        // Verifikasi Capster jika dipilih (harus aktif dan diizinkan tampil)
         if ($request->capster_id) {
             $capster = Employee::where('id_employee', $request->capster_id)
                 ->where('id_store', $request->store_id)
+                ->where('is_active', 1)
+                ->where('show_on_reservation', 1)
                 ->first();
 
             if (!$capster) {
@@ -226,10 +237,13 @@ class BookingController extends Controller
                     $assignedCapsterId = $request->capster_id;
                 } else {
                     // "Bebas / Siapa Saja" logic
-                    // 1. Get all employees assigned to this slot
+                    // 1. Get all employees assigned to this slot (must be active and show_on_reservation)
                     $assignedEmployees = DB::table('reservation_slot_employee')
-                        ->where('id_slot', $slot->id_slot)
-                        ->pluck('id_employee')
+                        ->join('employees', 'employees.id_employee', '=', 'reservation_slot_employee.id_employee')
+                        ->where('reservation_slot_employee.id_slot', $slot->id_slot)
+                        ->where('employees.is_active', 1)
+                        ->where('employees.show_on_reservation', 1)
+                        ->pluck('reservation_slot_employee.id_employee')
                         ->toArray();
 
                     if (empty($assignedEmployees)) {
