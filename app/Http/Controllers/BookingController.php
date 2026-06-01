@@ -22,7 +22,7 @@ class BookingController extends Controller
     public function showBookingForm()
     {
         // Ambil Toko/Cabang yang aktif DAN diizinkan tampil di web reservasi
-        $stores = Store::where('is_active', 1)
+        $stores = Store::whereNull('deleted_at')
             ->where('show_on_reservation', 1)
             ->get();
 
@@ -58,7 +58,7 @@ class BookingController extends Controller
                     ->from('reservation_slot_employee')
                     ->join('employees', 'employees.id_employee', '=', 'reservation_slot_employee.id_employee')
                     ->whereColumn('reservation_slot_employee.id_slot', 'reservation_slots.id_slot')
-                    ->where('employees.is_active', 1)
+                    ->whereNull('employees.deleted_at')
                     ->where('employees.show_on_reservation', 1);
 
                 if ($employeeId) {
@@ -84,6 +84,7 @@ class BookingController extends Controller
             $formattedSlotTime = date('H:i', strtotime($slot->slot_time));
 
             $bookedCount = DB::table('reservations')
+                ->whereNull('deleted_at')
                 ->where('booking_date', $date)
                 ->where('booking_time', 'like', $formattedSlotTime . '%')
                 ->where('id_store', $storeId) // Filter berdasarkan store agar akurat
@@ -144,7 +145,7 @@ class BookingController extends Controller
         if ($request->capster_id) {
             $capster = Employee::where('id_employee', $request->capster_id)
                 ->where('id_store', $request->store_id)
-                ->where('is_active', 1)
+                ->whereNull('deleted_at')
                 ->where('show_on_reservation', 1)
                 ->first();
 
@@ -216,6 +217,7 @@ class BookingController extends Controller
                 // Lock baris reservasi yang relevan agar proses lain menunggu
                 // Filter by employee if specific capster is chosen
                 $bookedQuery = DB::table('reservations')
+                    ->whereNull('deleted_at')
                     ->where('booking_date', $request->date)
                     ->where('booking_time', 'like', $formattedReqTime . '%')
                     ->where('id_store', $request->store_id)
@@ -241,7 +243,7 @@ class BookingController extends Controller
                     $assignedEmployees = DB::table('reservation_slot_employee')
                         ->join('employees', 'employees.id_employee', '=', 'reservation_slot_employee.id_employee')
                         ->where('reservation_slot_employee.id_slot', $slot->id_slot)
-                        ->where('employees.is_active', 1)
+                        ->whereNull('employees.deleted_at')
                         ->where('employees.show_on_reservation', 1)
                         ->pluck('reservation_slot_employee.id_employee')
                         ->toArray();

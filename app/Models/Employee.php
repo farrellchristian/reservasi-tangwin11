@@ -14,7 +14,7 @@ class Employee extends Model
     public function scopeActiveCapster($query)
     {
         return $query->where('position', 'Capster')
-            ->where('is_active', 1);
+            ->whereNull('deleted_at');
     }
 
     // Hanya mengambil pegawai yang diizinkan tampil di web reservasi (booking).

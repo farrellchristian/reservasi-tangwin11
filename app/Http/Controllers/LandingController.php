@@ -13,7 +13,7 @@ class LandingController extends Controller
     public function index()
     {
         // Ambil semua toko yang aktif beserta service-nya
-        $stores = Store::where('is_active', true)
+        $stores = Store::whereNull('deleted_at')
             ->with(['services' => function ($query) {
                 $query->whereNull('deleted_at');
             }])

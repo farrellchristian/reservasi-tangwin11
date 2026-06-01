@@ -13,7 +13,7 @@ class Store extends Model
     // Mengambil store yang aktif saja
     public function scopeActive($query)
     {
-        return $query->where('is_active', 1);
+        return $query->whereNull('deleted_at');
     }
 
     public function services()

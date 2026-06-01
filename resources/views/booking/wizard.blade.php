@@ -740,100 +740,46 @@
 
 
         <!-- ========================================================
-             FULLSCREEN BOOKING CONFIRMATION ANIMATION OVERLAY
+             MODAL BOOKING CONFIRMATION 
              ======================================================== -->
         <div x-show="showSuccessAnimation" x-cloak
-             id="confirmOverlay"
-             class="confirm-overlay fixed inset-0 z-[99999] flex items-center justify-center px-4"
-             style="background: radial-gradient(ellipse at center, #111008 0%, #050505 70%)">
-
-            <!-- Noise texture -->
-            <div class="absolute inset-0 opacity-[0.03] pointer-events-none"
-                 style="background-image:url('data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.65\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E')"></div>
-
-            <!-- Background ambient glow -->
-            <div class="absolute inset-0 pointer-events-none" style="background: radial-gradient(circle at 50% 40%, rgba(198,168,124,0.08) 0%, transparent 65%);"></div>
-
-            <!-- Particle container (JS fills this) -->
-            <div id="confirmParticleContainer" class="absolute inset-0 overflow-hidden pointer-events-none"></div>
+             class="fixed inset-0 z-[99999] flex items-center justify-center px-4 bg-black/80 backdrop-blur-sm"
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0">
 
             <!-- Main card -->
-            <div class="confirm-card relative w-full max-w-md text-center">
+            <div class="relative w-full max-w-sm bg-[#111] border border-[#C6A87C]/30 rounded-2xl shadow-2xl p-8 text-center transform transition-all"
+                 x-transition:enter="transition ease-out duration-300 delay-100"
+                 x-transition:enter-start="opacity-0 scale-90 translate-y-4"
+                 x-transition:enter-end="opacity-100 scale-100 translate-y-0">
 
                 <!-- Checkmark area -->
-                <div class="relative flex items-center justify-center mb-8">
-                    <!-- Pulsing rings -->
-                    <div class="relative w-28 h-28">
-                        <div class="confirm-ring"></div>
-                        <div class="confirm-ring confirm-ring-2"></div>
-                        <div class="confirm-ring confirm-ring-3"></div>
-
-                        <!-- SVG Checkmark -->
-                        <svg class="confirm-svg w-28 h-28 block rounded-full"
-                             style="stroke: #C6A87C; stroke-width:2; stroke-miterlimit:10; fill:none;"
-                             xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
-                            <circle class="confirm-circle" cx="26" cy="26" r="25" fill="none"
-                                    style="stroke:#C6A87C; stroke-width:2; stroke-miterlimit:10;"/>
-                            <path  class="confirm-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"
-                                   style="stroke:#050505; stroke-width:2;"/>
-                        </svg>
-                    </div>
+                <div class="mx-auto flex items-center justify-center w-24 h-24 bg-[#C6A87C] rounded-full mb-6 shadow-[0_0_30px_rgba(198,168,124,0.3)]">
+                    <svg class="w-12 h-12 text-[#111]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 6L9 17l-5-5"></path>
+                    </svg>
                 </div>
 
                 <!-- Title -->
-                <h2 class="confirm-title font-display text-4xl md:text-5xl mb-2">Booking Confirmed!</h2>
-
-                <!-- Gold line -->
-                <div class="confirm-line mx-auto mb-6" style="height:1px; width:80px; background: linear-gradient(90deg, transparent, #C6A87C, transparent);"></div>
+                <h2 class="font-display text-2xl text-white mb-2">Transaksi Berhasil!</h2>
 
                 <!-- Sub headline -->
-                <p class="confirm-row-1 text-gray-400 text-sm mb-6">Terima kasih, <span class="text-white font-semibold" x-text="customerName"></span>.<br>Kami siap menyambut Anda.</p>
+                <p class="text-gray-400 text-sm mb-8">Terima kasih <span class="text-[#C6A87C] font-bold" x-text="customerName"></span>, reservasi Anda telah tercatat.</p>
 
-                <!-- Booking detail card -->
-                <div class="mx-auto max-w-sm rounded-xl border border-white/10 bg-white/[0.04] backdrop-blur-sm divide-y divide-white/10 overflow-hidden">
-
-                    <div class="confirm-row-2 flex items-center gap-3 px-5 py-3 text-left">
-                        <svg class="w-4 h-4 text-[#C6A87C] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64M5.25 21V9.75m13.5 11.25V9.75m-13.5 0A2.25 2.25 0 017.5 7.5h9a2.25 2.25 0 012.25 2.25"/>
-                        </svg>
-                        <span class="text-gray-500 text-xs w-20">Studio</span>
-                        <span class="text-white text-xs font-medium" x-text="selectedStore ? selectedStore.name : ''"></span>
-                    </div>
-
-                    <div class="confirm-row-3 flex items-center gap-3 px-5 py-3 text-left">
-                        <svg class="w-4 h-4 text-[#C6A87C] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714a2.25 2.25 0 001.357 2.059l.527.18M14.25 3.104c.251.023.501.05.75.082M19.5 10.5c0 2.485-1.567 4.626-3.75 5.498M9.75 3.104A24.3 24.3 0 0012 3c.75 0 1.504.036 2.25.104"/>
-                        </svg>
-                        <span class="text-gray-500 text-xs w-20">Layanan</span>
-                        <span class="text-white text-xs font-medium" x-text="selectedService ? selectedService.name : ''"></span>
-                    </div>
-
-                    <div class="confirm-row-4 flex items-center gap-3 px-5 py-3 text-left">
-                        <svg class="w-4 h-4 text-[#C6A87C] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0"/>
-                        </svg>
-                        <span class="text-gray-500 text-xs w-20">Stylist</span>
-                        <span class="text-white text-xs font-medium" x-text="selectedCapsterName"></span>
-                    </div>
-
-                    <div class="confirm-row-5 flex items-center gap-3 px-5 py-3 text-left">
-                        <svg class="w-4 h-4 text-[#C6A87C] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
-                        </svg>
-                        <span class="text-gray-500 text-xs w-20">Waktu</span>
-                        <span class="text-white text-xs font-medium" x-text="(date ? formatDate(date) : '') + (timeSlot ? ' · ' + timeSlot : '')"></span>
-                    </div>
+                <!-- Buttons -->
+                <div class="space-y-3">
+                    <button @click="window.location.href = '{{ route('home') }}'" class="w-full py-3 bg-[#C6A87C] hover:bg-white text-black font-bold uppercase tracking-widest text-sm rounded-lg transition-all duration-300 shadow-[0_0_15px_rgba(198,168,124,0.2)]">
+                        Selesai
+                    </button>
+                    <button @click="window.location.href = '{{ route('home') }}'" class="w-full py-3 bg-transparent hover:bg-white/5 text-gray-400 hover:text-white border border-white/10 font-bold uppercase tracking-widest text-sm rounded-lg transition-all duration-300">
+                        Kembali ke Beranda
+                    </button>
                 </div>
-
-                <!-- CTA & countdown -->
-                <div class="confirm-cta mt-8">
-                    <p class="text-gray-600 text-[10px] uppercase tracking-widest mb-3">Mengarahkan ke halaman utama...</p>
-                    <div class="w-48 mx-auto h-[2px] bg-white/10 rounded-full overflow-hidden">
-                        <div class="confirm-bar h-full rounded-full" style="background: linear-gradient(90deg, #9a7a52, #C6A87C, #f0d9a8);"></div>
-                    </div>
-                </div>
-
-            </div><!-- /confirm-card -->
+            </div>
         </div>
         <!-- End Confirmation Overlay -->
 
@@ -930,11 +876,9 @@
                 },
 
                 init() {
-                    // Spawn gold particles whenever success animation becomes visible
+                    // success animation trigger
                     this.$watch('showSuccessAnimation', (val) => {
-                        if (val) {
-                            this.$nextTick(() => this._spawnParticles());
-                        }
+                        // modal will show automatically via AlpineJS x-show
                     });
 
                     this.$watch('date', (value) => {
@@ -1048,34 +992,7 @@
                     }
                 },
 
-                /* Spawn floating gold + warm particles */
-                _spawnParticles() {
-                    const container = document.getElementById('confirmParticleContainer');
-                    if (!container) return;
-                    container.innerHTML = '';
-                    const colors = [
-                        '#C6A87C','#f0d9a8','#9a7a52','#e8c98a',
-                        '#fff8e7','#d4a853','#a8875a','#f5e6c8'
-                    ];
-                    const shapes = ['50%','4px','2px'];
-                    for (let i = 0; i < 80; i++) {
-                        const el = document.createElement('div');
-                        const size = Math.random() * 8 + 4;
-                        const color = colors[Math.floor(Math.random() * colors.length)];
-                        const shape = shapes[Math.floor(Math.random() * shapes.length)];
-                        el.className = 'confirm-particle';
-                        el.style.cssText = [
-                            `width:${size}px`, `height:${size}px`,
-                            `left:${Math.random() * 100}%`,
-                            `background:${color}`,
-                            `border-radius:${shape}`,
-                            `opacity:${Math.random() * 0.6 + 0.4}`,
-                            `animation-duration:${Math.random() * 3 + 2}s`,
-                            `animation-delay:${Math.random() * 2}s`
-                        ].join(';');
-                        container.appendChild(el);
-                    }
-                },
+                // particles removed
 
                 fetchSlots() {
                     if (!this.date || !this.selectedStore) return;

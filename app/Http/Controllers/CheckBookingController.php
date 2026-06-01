@@ -150,6 +150,7 @@ class CheckBookingController extends Controller
 
             // 4. Cek ketersediaan slot (dengan lock untuk menghindari race condition)
             $bookedQuery = DB::table('reservations')
+                ->whereNull('deleted_at')
                 ->where('booking_date', $newDate)
                 ->where('booking_time', 'like', $formattedTime . '%')
                 ->where('id_store', $storeId)
@@ -161,7 +162,7 @@ class CheckBookingController extends Controller
             if ($employeeId) {
                 // Pastikan stylist masih aktif dan show_on_reservation = 1
                 $stylistExists = Employee::where('id_employee', $employeeId)
-                    ->where('is_active', 1)
+                    ->whereNull('deleted_at')
                     ->where('show_on_reservation', 1)
                     ->exists();
                 if (!$stylistExists) {
@@ -181,7 +182,7 @@ class CheckBookingController extends Controller
                 $assignedEmployees = DB::table('reservation_slot_employee')
                     ->join('employees', 'employees.id_employee', '=', 'reservation_slot_employee.id_employee')
                     ->where('reservation_slot_employee.id_slot', $slot->id_slot)
-                    ->where('employees.is_active', 1)
+                    ->whereNull('employees.deleted_at')
                     ->where('employees.show_on_reservation', 1)
                     ->pluck('reservation_slot_employee.id_employee')
                     ->toArray();

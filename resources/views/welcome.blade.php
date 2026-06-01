@@ -267,8 +267,7 @@
                         <div
                             class="absolute inset-0 w-full h-full bg-white/20 scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-500">
                         </div>
-                        <span class="relative text-black font-bold uppercase tracking-[0.2em] text-sm">Make
-                            Appointment</span>
+                        <span class="relative text-black font-bold uppercase tracking-[0.2em] text-sm">Reservasi!</span>
                     </a>
                     <a href="#location"
                         class="group flex items-center gap-3 px-6 py-4 text-white hover:text-[#C6A87C] transition-colors">
