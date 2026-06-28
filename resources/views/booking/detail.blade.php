@@ -100,7 +100,7 @@
             <div class="p-5 md:p-8 border-b border-white/10 flex flex-col md:flex-row justify-between items-start md:items-center bg-[#111]">
                 <div>
                     <h2 class="text-2xl font-display text-white">Detail Reservasi</h2>
-                    <p class="text-[10px] text-gray-500 uppercase tracking-widest mt-1 hover:text-white transition">ID: #{{ str_pad($reservation->id_reservation, 5, '0', STR_PAD_LEFT) }}</p>
+                    <p class="text-[10px] text-gray-500 uppercase tracking-widest mt-1 hover:text-white transition">{{ $reservation->booking_number ?? '#'.str_pad($reservation->id_reservation, 5, '0', STR_PAD_LEFT) }}</p>
                 </div>
                 <div class="mt-4 md:mt-0">
                     <span class="status-badge status-{{ strtolower($reservation->status) }}">

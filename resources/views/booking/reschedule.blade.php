@@ -99,8 +99,8 @@
             <p class="text-[10px] text-gray-500 uppercase tracking-widest mb-3">Reservasi yang Akan Diubah</p>
             <div class="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                    <p class="text-gray-500 text-[10px] uppercase tracking-widest mb-1">ID Reservasi</p>
-                    <p class="text-white font-bold">#{{ str_pad($reservation->id_reservation, 5, '0', STR_PAD_LEFT) }}</p>
+                    <p class="text-gray-500 text-[10px] uppercase tracking-widest mb-1">Nomor Booking</p>
+                    <p class="text-white font-bold">{{ $reservation->booking_number ?? '#'.str_pad($reservation->id_reservation, 5, '0', STR_PAD_LEFT) }}</p>
                 </div>
                 <div>
                     <p class="text-gray-500 text-[10px] uppercase tracking-widest mb-1">Pelanggan</p>

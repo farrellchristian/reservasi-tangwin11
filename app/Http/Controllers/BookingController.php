@@ -296,6 +296,15 @@ class BookingController extends Controller
                 $reservation->payment_type = $request->payment_method;
                 $reservation->notes = $request->notes;
                 $reservation->save();
+
+                // Generate booking_number setelah ID tersedia
+                // Format: TWC-YYYYMM-NNN (urutan dalam bulan, reset tiap bulan)
+                $yearMonth = now()->format('Ym');
+                $sequence = \App\Models\Reservation::whereRaw("DATE_FORMAT(created_at, '%Y%m') = ?", [$yearMonth])
+                    ->where('id_reservation', '<=', $reservation->id_reservation)
+                    ->count();
+                $reservation->booking_number = 'TWC-' . $yearMonth . '-' . str_pad($sequence, 3, '0', STR_PAD_LEFT);
+                $reservation->save();
             }
 
             Config::$serverKey = config('midtrans.server_key');

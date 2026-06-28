@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Invoice #{{ $reservation->id_reservation }}</title>
+    <title>Invoice {{ $reservation->booking_number ?? 'INV-'.str_pad($reservation->id_reservation, 5, '0', STR_PAD_LEFT) }}</title>
     <style>
         @page {
             margin: 0;
@@ -228,7 +228,7 @@
                 </div>
             </div>
             <div class="invoice-meta-box">
-                <div><strong>Invoice #:</strong> INV-{{ str_pad($reservation->id_reservation, 5, '0', STR_PAD_LEFT) }}</div>
+                <div><strong>Booking #:</strong> {{ $reservation->booking_number ?? 'INV-'.str_pad($reservation->id_reservation, 5, '0', STR_PAD_LEFT) }}</div>
                 <div><strong>Date:</strong> {{ date('d F Y', strtotime($reservation->booking_date)) }}</div>
             </div>
         </div>

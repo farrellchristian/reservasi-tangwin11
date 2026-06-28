@@ -18,7 +18,7 @@
         <p style="color: #4b5563; line-height: 1.6;">Halo <strong>{{ $reservation->customer_name }}</strong>,</p>
 
         <p style="color: #4b5563; line-height: 1.6;">
-            Kami telah menerima permintaan pembatalan jadwal Anda dengan Nomor Reservasi <strong>#{{ str_pad($reservation->id_reservation, 5, '0', STR_PAD_LEFT) }}</strong>. Jadwal Anda telah dibatalkan.
+            Kami telah menerima permintaan pembatalan jadwal Anda dengan Nomor Booking <strong>{{ $reservation->booking_number ?? '#'.str_pad($reservation->id_reservation, 5, '0', STR_PAD_LEFT) }}</strong>. Jadwal Anda telah dibatalkan.
         </p>
 
         <div style="background-color: #f9fafb; padding: 20px; border-radius: 6px; margin: 20px 0; border: 1px solid #e5e7eb;">

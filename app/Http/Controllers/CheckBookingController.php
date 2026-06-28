@@ -38,6 +38,7 @@ class CheckBookingController extends Controller
         // Ekstrak ID Reservasi dari format Invoice (INV-00061 atau INV-61)
         // Atau jika user hanya memasukkan ID Reservasi langsung (61)
         // Atau format lama Midtrans (BOOK-{ID}-{TIMESTAMP})
+        // Atau format baru (TWC-YYYYMM-NNN)
         $reservationId = null;
         if (str_starts_with(strtoupper($orderId), 'INV-')) {
             $reservationId = (int) str_replace('INV-', '', strtoupper($orderId));
@@ -50,12 +51,17 @@ class CheckBookingController extends Controller
             $reservationId = (int) $orderId;
         }
 
-        if (!$reservationId) {
+        if (!$reservationId && !str_starts_with(strtoupper($orderId), 'TWC-')) {
             return back()->with('error', 'Format Nomor Reservasi / Order ID tidak valid.')->withInput();
         }
 
         $reservation = Reservation::with(['service', 'employee', 'store'])
-            ->where('id_reservation', $reservationId)
+            ->where(function($q) use ($reservationId, $orderId) {
+                if ($reservationId) {
+                    $q->where('id_reservation', $reservationId);
+                }
+                $q->orWhere('booking_number', strtoupper($orderId));
+            })
             ->where(function ($query) use ($contact) {
                 $query->where('customer_phone', $contact)
                     ->orWhere('customer_email', $contact);

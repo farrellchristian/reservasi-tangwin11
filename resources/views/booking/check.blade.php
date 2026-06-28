@@ -52,7 +52,7 @@
             @csrf
             <div>
                 <label class="block text-xs uppercase tracking-widest text-gray-400 mb-2">Order ID / No. Reservasi</label>
-                <input type="text" name="order_id" value="{{ old('order_id') }}" placeholder="Contoh: INV-00123 atau 123" required class="w-full bg-[#111] border border-white/10 rounded-lg p-4 text-white focus:border-[#C6A87C] focus:ring-1 focus:ring-[#C6A87C] transition outline-none">
+                <input type="text" name="order_id" value="{{ old('order_id') }}" placeholder="Contoh: TWC-202606-001" required class="w-full bg-[#111] border border-white/10 rounded-lg p-4 text-white focus:border-[#C6A87C] focus:ring-1 focus:ring-[#C6A87C] transition outline-none">
                 <p class="text-[10px] text-gray-600 mt-1">Cek Order ID / No Invoice pada email Anda.</p>
             </div>
 

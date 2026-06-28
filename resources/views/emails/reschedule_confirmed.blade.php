@@ -60,15 +60,15 @@
         <p class="subtitle">Halo, <strong>{{ $newReservation->customer_name }}</strong>! Permintaan reschedule Anda telah berhasil diproses.</p>
 
         <div class="notice-box">
-            ⚠️ <strong>Perhatian:</strong> Booking lama (#{{ str_pad($oldReservation->id_reservation, 5, '0', STR_PAD_LEFT) }}) telah dibatalkan dan digantikan dengan booking baru di bawah ini.
+            ⚠️ <strong>Perhatian:</strong> Booking lama ({{ $oldReservation->booking_number ?? '#'.str_pad($oldReservation->id_reservation, 5, '0', STR_PAD_LEFT) }}) telah dibatalkan dan digantikan dengan booking baru di bawah ini.
         </div>
 
         <div class="detail-box">
             <h3>Detail Reservasi Baru</h3>
             <table class="detail-table">
                 <tr>
-                    <td class="detail-label">ID Reservasi Baru</td>
-                    <td class="detail-value">#{{ str_pad($newReservation->id_reservation, 5, '0', STR_PAD_LEFT) }}</td>
+                    <td class="detail-label">Nomor Booking Baru</td>
+                    <td class="detail-value">{{ $newReservation->booking_number ?? '#'.str_pad($newReservation->id_reservation, 5, '0', STR_PAD_LEFT) }}</td>
                 </tr>
                 <tr>
                     <td class="detail-label">Layanan</td>
