@@ -16,9 +16,6 @@
 </head>
 <body>
     <div class="email-container">
-        <div class="logo">
-            <img src="{{ asset('images/logo_struk.png') }}" alt="Tangwin Cut">
-        </div>
         
         <h2 style="color: #111; margin-bottom: 8px; font-size: 22px;">Hi, {{ $reservation->customer_name }}! 👋</h2>
         @if($reservation->payment_type == 'cash')

@@ -25,26 +25,12 @@ class PaymentSuccessMail extends Mailable
         $this->pdfOutput = $pdfOutput;
     }
 
-    public function envelope(): Envelope
+    public function build()
     {
-        return new Envelope(
-            subject: 'Booking Confirmed - Tangwin Cut Studio',
-        );
-    }
-
-    public function content(): Content
-    {
-        return new Content(
-            view: 'emails.payment_success', // Nama file view body email tadi
-        );
-    }
-
-    // Di sini kita tempelkan PDF-nya
-    public function attachments(): array
-    {
-        return [
-            Attachment::fromData(fn () => $this->pdfOutput, 'Invoice-TangwinCut.pdf')
-                ->withMime('application/pdf'),
-        ];
+        return $this->subject('Booking Confirmed - Tangwin Cut Studio')
+                    ->view('emails.payment_success')
+                    ->attachData($this->pdfOutput, 'Invoice-TangwinCut.pdf', [
+                        'mime' => 'application/pdf',
+                    ]);
     }
 }

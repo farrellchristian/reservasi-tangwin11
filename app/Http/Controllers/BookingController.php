@@ -87,10 +87,14 @@ class BookingController extends Controller
                 ->whereNull('deleted_at')
                 ->where('booking_date', $date)
                 ->where('booking_time', 'like', $formattedSlotTime . '%')
-                ->where('id_store', $storeId) // Filter berdasarkan store agar akurat
+                ->where('id_store', $storeId)
                 ->where('status', '!=', 'canceled')
                 ->where('status', '!=', 'expired')
                 ->where('status', '!=', 'refunded')
+                ->where(function ($q) {
+                    $q->where('status', '!=', 'pending')
+                      ->orWhere('created_at', '>', now()->subMinutes(10));
+                })
                 ->where(function ($q) use ($employeeId) {
                     if ($employeeId) {
                         $q->where('id_employee', $employeeId);
@@ -98,7 +102,6 @@ class BookingController extends Controller
                 })
                 ->count();
 
-            // Tambahkan semua slot, tandai sebagai is_full jika kuota habis
             $isPast = false;
             $slotDateTime = Carbon::parse($date . ' ' . $slot->slot_time);
             if ($slotDateTime->isPast()) {
@@ -299,11 +302,23 @@ class BookingController extends Controller
 
                 // Generate booking_number setelah ID tersedia
                 // Format: TWC-YYYYMM-NNN (urutan dalam bulan, reset tiap bulan)
+                // Gunakan MAX agar tidak bentrok meski ada data yang dihapus
                 $yearMonth = now()->format('Ym');
-                $sequence = \App\Models\Reservation::whereRaw("DATE_FORMAT(created_at, '%Y%m') = ?", [$yearMonth])
-                    ->where('id_reservation', '<=', $reservation->id_reservation)
-                    ->count();
-                $reservation->booking_number = 'TWC-' . $yearMonth . '-' . str_pad($sequence, 3, '0', STR_PAD_LEFT);
+                $prefix = 'TWC-' . $yearMonth . '-';
+
+                $lastBooking = \App\Models\Reservation::where('booking_number', 'LIKE', $prefix . '%')
+                    ->orderBy('booking_number', 'desc')
+                    ->first();
+
+                if ($lastBooking) {
+                    // Ambil angka terakhir dari booking_number, lalu +1
+                    $lastSequence = (int) substr($lastBooking->booking_number, strlen($prefix));
+                    $sequence = $lastSequence + 1;
+                } else {
+                    $sequence = 1;
+                }
+
+                $reservation->booking_number = $prefix . str_pad($sequence, 3, '0', STR_PAD_LEFT);
                 $reservation->save();
             }
 
