@@ -665,8 +665,7 @@
                                         <rect x="3" y="14" width="7" height="7"></rect>
                                     </svg>
                                 </div>
-                                <h4 class="text-sm md:text-lg font-bold text-white mb-0.5 md:mb-1">QRIS</h4>
-                                <p class="text-[9px] md:text-xs text-gray-500">Scan via All Apps</p>
+                                <h4 class="text-sm md:text-lg font-bold text-white">Qris (Bayar Sekarang)</h4>
                             </div>
 
 
@@ -682,8 +681,7 @@
                                         </path>
                                     </svg>
                                 </div>
-                                <h4 class="text-sm md:text-lg font-bold text-white mb-0.5 md:mb-1">Cash</h4>
-                                <p class="text-[9px] md:text-xs text-gray-500">Bayar di Tempat</p>
+                                <h4 class="text-sm md:text-lg font-bold text-white">Bayar di Tempat</h4>
                             </div>
                         </div>
 
